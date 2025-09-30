@@ -24,9 +24,9 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
 ]
 
-# Core dependencies - Phase 1 + Phase 2A
+# Core dependencies - Phase 1 + Phase 2A + Phase 2B
 dependencies = [
-    "streamlit>=1.28.0",
+    "streamlit>=1.42.0",  # Phase 2B: Native OIDC authentication
     "pydantic>=2.5.0",
     "pydantic-settings>=2.1.0",
     "structlog>=23.2.0",
@@ -37,6 +37,8 @@ dependencies = [
     "alembic>=1.13.0",
     "google-auth>=2.23.0",
     "google-auth-oauthlib>=1.1.0",
+    # Phase 2B: OAuth Integration
+    "Authlib>=1.3.2",  # Required for Streamlit OIDC auth
 ]
 
 # Optional dependencies for future phases

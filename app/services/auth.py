@@ -69,32 +69,56 @@ class AuthService:
     def get_or_create_user(self, google_sub: str, email: str) -> User:
         """
         Get existing user or create new user from Google OAuth data.
-        
+
         Args:
             google_sub: Google's unique user identifier
             email: User's email address
-            
+
         Returns:
             User object
         """
         engine = get_engine()
-        
+
         with Session(engine) as session:
-            # Try to find existing user by google_sub
+            # First try to find existing user by google_sub
             statement = select(User).where(User.google_sub == google_sub)
             user = session.exec(statement).first()
-            
+
             if user:
                 # Update last login and email (in case it changed)
                 user.email = email
                 user.last_login_at = datetime.utcnow()
+                user.updated_at = datetime.utcnow()
                 session.add(user)
                 session.commit()
                 session.refresh(user)
-                logger.info("Existing user logged in", user_id=str(user.id), email=email)
+                logger.info("Existing user logged in (by google_sub)", user_id=str(user.id), email=email)
                 return user
-            
-            # Create new user
+
+            # If not found by google_sub, try by email (for mock OAuth compatibility)
+            statement = select(User).where(User.email == email)
+            user = session.exec(statement).first()
+
+            if user:
+                # User exists with this email but different google_sub
+                # Update google_sub (allows mock OAuth to work with real OAuth users)
+                logger.warning(
+                    "User found by email with different google_sub - updating",
+                    user_id=str(user.id),
+                    email=email,
+                    old_google_sub=user.google_sub,
+                    new_google_sub=google_sub
+                )
+                user.google_sub = google_sub
+                user.last_login_at = datetime.utcnow()
+                user.updated_at = datetime.utcnow()
+                session.add(user)
+                session.commit()
+                session.refresh(user)
+                logger.info("Existing user logged in (by email)", user_id=str(user.id), email=email)
+                return user
+
+            # Create new user (no existing user found)
             role = self._determine_user_role(email)
             user = User(
                 google_sub=google_sub,
@@ -102,11 +126,11 @@ class AuthService:
                 role=role,
                 last_login_at=datetime.utcnow()
             )
-            
+
             session.add(user)
             session.commit()
             session.refresh(user)
-            
+
             logger.info("New user created", user_id=str(user.id), email=email, role=role.value)
             return user
     
