@@ -89,6 +89,19 @@ class AuthService:
                 user.email = email
                 user.last_login_at = datetime.utcnow()
                 user.updated_at = datetime.utcnow()
+
+                # Check if role should be updated based on current admin list
+                expected_role = self._determine_user_role(email)
+                if user.role != expected_role:
+                    logger.info(
+                        "Updating user role based on admin list",
+                        user_id=str(user.id),
+                        email=email,
+                        old_role=user.role.value,
+                        new_role=expected_role.value
+                    )
+                    user.role = expected_role
+
                 session.add(user)
                 session.commit()
                 session.refresh(user)
@@ -112,6 +125,19 @@ class AuthService:
                 user.google_sub = google_sub
                 user.last_login_at = datetime.utcnow()
                 user.updated_at = datetime.utcnow()
+
+                # Check if role should be updated based on current admin list
+                expected_role = self._determine_user_role(email)
+                if user.role != expected_role:
+                    logger.info(
+                        "Updating user role based on admin list",
+                        user_id=str(user.id),
+                        email=email,
+                        old_role=user.role.value,
+                        new_role=expected_role.value
+                    )
+                    user.role = expected_role
+
                 session.add(user)
                 session.commit()
                 session.refresh(user)

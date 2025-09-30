@@ -12,20 +12,21 @@ logger = get_logger(__name__)
 
 def render_oauth_signin() -> None:
     """Render native Google Sign-in using st.login()."""
-    st.markdown("### 🔐 Sign In")
-    st.markdown("Please sign in with your Google account to access the badging system.")
-    
-    # Check if user is already authenticated
+    st.markdown("### 🔐 Welcome to AIPPRO Badging System")
+    st.markdown("Sign in with your Google account to access the system.")
+    st.markdown("---")
+
+    # Check if OAuth authentication just completed
     oauth_service = get_oauth_service()
-    
-    if oauth_service.is_authenticated():
-        # User is authenticated, sync with database
+
+    if oauth_service.is_authenticated() and 'current_user' not in st.session_state:
+        # User just authenticated via OAuth, sync with database
         user = oauth_service.get_current_user()
         if user:
             st.session_state.current_user = user
             st.session_state.auth_method = "oauth"
             logger.info("OAuth user authenticated", user_id=str(user.id), email=user.email)
-            st.success(f"Welcome, {user.email}! You are signed in as {user.role.value.lower()}.")
+            st.success(f"✅ Signed in successfully as {user.email}")
             st.rerun()
         else:
             st.error("Failed to sync user data. Please try signing in again.")
@@ -34,16 +35,24 @@ def render_oauth_signin() -> None:
     else:
         # User not authenticated, show sign-in options
         col1, col2 = st.columns([2, 1])
-        
+
         with col1:
-            st.markdown("#### Production Authentication")
+            st.markdown("#### Sign In")
             if hasattr(st, 'login'):
-                if st.button("🚀 Sign in with Google", type="primary", use_container_width=True):
+                if st.button("🚀 Sign in with Google", type="primary", use_container_width=True, key="google_signin"):
                     st.login()
             else:
                 st.error("⚠️ Streamlit OAuth not available. Please ensure Streamlit 1.42+ is installed.")
                 st.code("pip install streamlit>=1.42.0 Authlib>=1.3.2")
-        
+
+            st.markdown("---")
+            st.info("""
+            **About the Sign-In Process:**
+            - All users sign in with their Google account
+            - New users will complete a quick registration after signing in
+            - Existing users will be directed to their dashboard
+            """)
+
         with col2:
             # Development/testing options
             if st.secrets.get("general", {}).get("debug", False):
@@ -51,7 +60,7 @@ def render_oauth_signin() -> None:
                 if st.button("🧪 Mock OAuth", type="secondary", use_container_width=True):
                     st.session_state.use_mock_oauth = True
                     st.rerun()
-    
+
     # Handle mock OAuth if enabled
     if st.session_state.get("use_mock_oauth", False):
         render_mock_oauth_form()
@@ -166,20 +175,14 @@ def render_oauth_user_info(user: User) -> None:
 
 
 def get_current_oauth_user() -> Optional[User]:
-    """Get the currently authenticated OAuth user."""
-    # Check session state first
-    if 'current_user' in st.session_state:
-        return st.session_state.current_user
-    
-    # Try to get from OAuth service
-    oauth_service = get_oauth_service()
-    user = oauth_service.get_current_user()
-    
-    if user:
-        st.session_state.current_user = user
-        st.session_state.auth_method = "oauth"
-    
-    return user
+    """
+    Get the currently authenticated OAuth user.
+
+    Returns user from session state only - does NOT auto-sync from OAuth.
+    Call this after user has explicitly authenticated.
+    """
+    # Only return user if already in session state
+    return st.session_state.get('current_user')
 
 
 def require_oauth_authentication() -> Optional[User]:

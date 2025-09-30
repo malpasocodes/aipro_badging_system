@@ -4,13 +4,21 @@ import streamlit as st
 
 from app.core.config import get_settings
 from app.core.logging import setup_logging
+from app.models.user import UserRole
+from app.routers import (
+    render_admin_dashboard,
+    render_assistant_dashboard,
+    render_student_dashboard,
+)
+from app.services.onboarding import get_onboarding_service
 from app.ui.auth import get_current_user, require_authentication, render_user_info
 from app.ui.oauth_auth import (
-    get_current_oauth_user, 
-    require_oauth_authentication, 
+    get_current_oauth_user,
+    require_oauth_authentication,
     render_oauth_user_info,
     is_oauth_available
 )
+from app.ui.onboarding import render_onboarding_form
 
 
 def main() -> None:
@@ -29,69 +37,25 @@ def main() -> None:
         initial_sidebar_state="expanded",
     )
 
-    # Application header
-    st.title("🏆 AIPPRO Badging System")
-    
-    # Determine authentication method and get user
+    # Get settings
     settings = get_settings()
-    
+
+    # Check if user is already authenticated (in session state)
     # Phase 2B: Try OAuth authentication first if available
     if is_oauth_available():
         user = get_current_oauth_user()
         auth_method = "oauth"
     else:
         # Fallback to Phase 2A authentication
-        user = get_current_user() 
+        user = get_current_user()
         auth_method = "legacy"
-    
-    if user:
-        # User is authenticated - show main application
-        if auth_method == "oauth":
-            render_oauth_user_info(user)
-        else:
-            render_user_info(user)
-        
-        st.write(f"Welcome back, {user.email}!")
-        
-        if user.role.value == "ADMIN":
-            st.success("🔑 You have administrator privileges")
-        
-        st.markdown("### 📋 Available Features")
-        
-        # Phase 2B features
-        st.info("✅ **Phase 2B Complete**: Real Google OAuth Integration")
-        st.write("- Native Streamlit OAuth authentication")
-        st.write("- Google Sign-in with st.login()") 
-        st.write("- User synchronization with database")
-        st.write("- Role-based access control")
-        st.write("- Admin bootstrap via environment variables")
-        
-        # Phase 2A legacy features
-        with st.expander("📜 Phase 2A Features (Legacy)"):
-            st.write("- Mock authentication system")
-            st.write("- User database management")
-            st.write("- Session state management")
-        
-        # Future phases preview
-        st.markdown("### 🚀 Coming Soon")
-        st.write("**Phase 2C**: Enhanced security features")
-        st.write("**Phase 3**: Badge definitions and criteria")
-        st.write("**Phase 4**: Badge approval workflows")
-        st.write("**Phase 5**: Student self-service portal")
-        
-        # Development info
-        if settings.debug:
-            st.markdown("---")
-            st.markdown("### 🔧 Development Information")
-            st.write(f"**Authentication Method:** {auth_method}")
-            st.write(f"**OAuth Available:** {is_oauth_available()}")
-            st.write(f"**Streamlit Version:** {st.__version__}")
-            
-    else:
-        # User not authenticated - require sign-in based on available method
-        st.write("Welcome to the AIPPRO Digital Badging System")
-        st.markdown("This system helps manage digital badges for AI/Pro program participants.")
-        
+
+    # If no authenticated user, show login page
+    if not user:
+        # User not authenticated - show login page
+        st.title("🏆 AIPPRO Badging System")
+        st.markdown("---")
+
         if is_oauth_available():
             # Use OAuth authentication (Phase 2B)
             require_oauth_authentication()
@@ -99,10 +63,51 @@ def main() -> None:
             # Fallback to legacy authentication (Phase 2A)
             st.warning("⚠️ Native OAuth not available. Using legacy authentication.")
             require_authentication()
+        st.stop()
+
+    # User is authenticated - show application header
+    st.title("🏆 AIPPRO Badging System")
+
+    if user:
+        # Phase 3: Check if user has completed registration/onboarding
+        onboarding_service = get_onboarding_service()
+        if not onboarding_service.check_onboarding_status(user):
+            # User needs to complete registration (applies to all roles)
+            render_onboarding_form()
+            return
+
+        # User is authenticated and registered - show user info in sidebar
+        if auth_method == "oauth":
+            render_oauth_user_info(user)
+        else:
+            render_user_info(user)
+
+        # Route to role-specific dashboard
+        if user.role == UserRole.ADMIN:
+            render_admin_dashboard(user)
+        elif user.role == UserRole.ASSISTANT:
+            render_assistant_dashboard(user)
+        elif user.role == UserRole.STUDENT:
+            render_student_dashboard(user)
+        else:
+            # Fallback for unknown roles
+            st.error(f"Unknown user role: {user.role}")
+            st.write("Please contact an administrator.")
+
+        # Development info (shown for all roles in debug mode)
+        if settings.debug:
+            st.markdown("---")
+            st.markdown("### 🔧 Development Information")
+            st.write(f"**User ID:** {user.id}")
+            st.write(f"**Role:** {user.role.value}")
+            st.write(f"**Authentication Method:** {auth_method}")
+            st.write(f"**OAuth Available:** {is_oauth_available()}")
+            st.write(f"**Streamlit Version:** {st.__version__}")
+            st.write(f"**Onboarded:** {user.is_onboarded()}")
 
     # Health check endpoint (accessible via query params)
     if st.query_params.get("health"):
-        st.json({"status": "healthy", "version": "0.1.0", "phase": "1"})
+        st.json({"status": "healthy", "version": "0.3.0", "phase": "3"})
 
 
 if __name__ == "__main__":

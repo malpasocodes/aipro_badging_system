@@ -35,11 +35,12 @@ class User(SQLModel, table=True):
     last_login_at: Optional[datetime] = Field(default=None)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
-    
-    # Future fields (Phase 3: Onboarding)
-    username: Optional[str] = Field(default=None)
+
+    # Onboarding fields (Phase 3)
+    username: Optional[str] = Field(default=None, max_length=50)
     substack_email: Optional[str] = Field(default=None)
     meetup_email: Optional[str] = Field(default=None)
+    onboarding_completed_at: Optional[datetime] = Field(default=None)
     
     def is_admin(self) -> bool:
         """Check if user has admin role."""
@@ -56,3 +57,12 @@ class User(SQLModel, table=True):
     def has_role(self, *roles: UserRole) -> bool:
         """Check if user has any of the specified roles."""
         return self.role in roles
+
+    def is_onboarded(self) -> bool:
+        """Check if user has completed onboarding."""
+        return (
+            self.username is not None
+            and self.substack_email is not None
+            and self.meetup_email is not None
+            and self.onboarding_completed_at is not None
+        )

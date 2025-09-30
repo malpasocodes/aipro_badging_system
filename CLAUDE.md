@@ -224,9 +224,12 @@ The project is divided into 10 incremental phases, each requiring formal plannin
    - Phase 2A: Mock Authentication ✅ Complete
    - Phase 2B: Real Google OAuth ✅ **ACCEPTED**
    - Phase 2C: Enhanced Security (Planned)
+3. ✅ **Onboarding Flow** - ✅ **ACCEPTED** (Phase 3)
+   - User registration with username, Substack email, Meetup email
+   - Role-based routing (Admin/Assistant/Student dashboards)
+   - Comprehensive validation and testing (43 tests passing)
 
 ### Upcoming Phases
-3. Onboarding Flow
 4. Roles & Approvals Queue
 5. Badge Data Model & Catalog
 6. Earning Logic & Awards
@@ -239,24 +242,31 @@ The project is divided into 10 incremental phases, each requiring formal plannin
 
 **Phase 2B Status**: ACCEPTED ✅ - Implementation complete, tested (43/43 auth/OAuth tests passing), and verified with real Google OAuth credentials. Ready for production deployment.
 
-## Current Authentication System (Phase 2B)
+**Phase 3 Status**: ACCEPTED ✅ - User onboarding and registration complete with role-based routing. All 43 tests passing (34 unit + 9 integration). Admin role auto-sync implemented. Ready for production deployment.
+
+## Current Authentication & Onboarding System (Phases 2B + 3)
 
 ### Implementation Status
 - **Real Google OAuth**: Native Streamlit OAuth using st.login() and st.user
 - **Backward Compatibility**: Mock authentication still available for development
 - **User Synchronization**: OAuth data synced with existing user database
-- **Role-Based Access**: Admin/student roles with environment-based bootstrap
+- **Role-Based Access**: Admin/Assistant/Student roles with environment-based bootstrap
+- **User Onboarding**: Registration form captures username, Substack email, Meetup email, and consent
+- **Role-Based Routing**: Smart routing to Admin/Assistant/Student dashboards based on role and onboarding status
+- **Admin Role Sync**: Automatic role updates based on ADMIN_EMAILS list on every login
 - **Session Management**: Streamlit's built-in secure session handling
 - **Database**: SQLite with Alembic migrations (ready for PostgreSQL upgrade)
 
-### OAuth Authentication Flow (Primary)
-1. User clicks "Sign in with Google" button
-2. Streamlit initiates OAuth flow with Google Identity Services
-3. User authenticates and grants permissions at Google
-4. Google redirects back with OAuth data
-5. Streamlit populates st.user with user information
-6. OAuthSyncService syncs OAuth data with user database
-7. Application loads with authenticated user and role-based access
+### Complete User Flow (OAuth + Onboarding)
+1. **Login**: User clicks "Sign in with Google" button
+2. **OAuth**: Streamlit initiates OAuth flow with Google Identity Services
+3. **Authentication**: User authenticates and grants permissions at Google
+4. **Callback**: Google redirects back with OAuth data
+5. **Sync**: OAuthSyncService syncs OAuth data with user database
+6. **Role Check**: System checks if email is in ADMIN_EMAILS and assigns/updates role
+7. **Onboarding Check**: System checks if user has completed registration
+8. **Registration** (if needed): User fills out registration form with username, emails, consent
+9. **Dashboard**: User routed to role-specific dashboard (Admin/Assistant/Student)
 
 ### Mock Authentication Flow (Development)
 1. User clicks "Mock OAuth" in development mode
