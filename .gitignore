@@ -149,6 +149,7 @@ Thumbs.db
 
 # Project specific
 logs/
+!docs/logs/
 *.log
 audit-results.json
 
