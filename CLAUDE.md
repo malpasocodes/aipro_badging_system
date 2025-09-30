@@ -10,7 +10,7 @@ This is the AIPPRO Badging System - a Python/Streamlit application for recognizi
 
 ## Project Structure
 
-Currently, this repository contains only documentation files in the planning phase. The actual application structure will follow this architecture:
+This repository contains a working Python/Streamlit application with the following structure:
 
 ```
 /app
@@ -31,7 +31,7 @@ uv.lock          # dependency lockfile
 
 ## Development Commands
 
-**Note:** The project is currently in the documentation/planning phase. Once implementation begins, these commands will be available:
+**Current Status:** Phase 2A (Authentication) is complete. The following commands are available:
 
 ### Environment Setup
 ```bash
@@ -58,11 +58,13 @@ coverage run -m pytest    # Run tests with coverage
 coverage report           # Show coverage report
 ```
 
-### Database Operations (Future)
+### Database Operations
 ```bash
-# Database migrations (when using Alembic)
-alembic upgrade head      # Apply migrations
-alembic revision --autogenerate -m "message"  # Generate new migration
+# Database migrations (Alembic configured)
+uv run alembic upgrade head      # Apply migrations
+uv run alembic revision --autogenerate -m "message"  # Generate new migration
+uv run alembic current           # Show current revision
+uv run alembic history           # Show migration history
 ```
 
 ## Architecture Highlights
@@ -180,8 +182,14 @@ Each phase plan should include:
 ## Project Phases
 
 The project is divided into 10 incremental phases, each requiring formal planning and approval:
-1. Project Setup & Repo Initialization
-2. Authentication & Session Management  
+
+### Completed Phases
+1. ✅ **Project Setup & Repo Initialization** - Complete (Phase 1)
+2. ✅ **Authentication & Session Management** - Phase 2A Complete (Mock Authentication)
+   - Phase 2B: Real Google OAuth (Planned)
+   - Phase 2C: Enhanced Security (Planned)
+
+### Upcoming Phases  
 3. Onboarding Flow
 4. Roles & Approvals Queue
 5. Badge Data Model & Catalog
@@ -192,6 +200,46 @@ The project is divided into 10 incremental phases, each requiring formal plannin
 10. Deployment & Launch
 
 **Note:** No phase can begin without an approved plan document in `docs/plans/`.
+
+## Current Authentication System (Phase 2A)
+
+### Implementation Status
+- **Mock Authentication**: Fully functional development authentication system
+- **User Management**: Complete user CRUD with SQLite database
+- **Session Management**: Streamlit session_state with timeout handling
+- **Role-Based Access**: Admin/student roles with environment-based bootstrap
+- **Database**: SQLite with Alembic migrations (ready for PostgreSQL upgrade)
+
+### Authentication Flow
+1. User enters email in mock sign-in form
+2. MockAuthService simulates Google ID token verification  
+3. User record created/updated in database
+4. Session started with role-based access control
+5. UI adapts based on user role (admin vs student)
+
+### Environment Configuration
+```bash
+# Required .env variables for Phase 2A
+DATABASE_URL="sqlite:///./badging_system.db"
+GOOGLE_CLIENT_ID="your_google_client_id_here"  # For Phase 2B
+ADMIN_EMAILS="admin@example.com,admin2@example.com"
+LOG_LEVEL="INFO"
+DEBUG="true"
+```
+
+### Key Files
+- `app/services/auth.py` - Authentication service with mock implementation
+- `app/models/user.py` - User data model with roles and Google OAuth fields
+- `app/ui/auth.py` - Streamlit authentication UI components
+- `app/core/session.py` - Session management with timeout
+- `app/core/database.py` - Database connection and health checks
+- `tests/unit/test_auth_service.py` - Comprehensive authentication tests
+- `tests/integration/test_auth_integration.py` - End-to-end auth flow tests
+
+### Testing
+- **Unit Tests**: 11/11 passing (authentication service)
+- **Integration Tests**: 4/4 passing (database and user flows)
+- **Mock Coverage**: Complete test coverage without external API dependencies
 
 ## Testing Strategy
 - **Unit tests**: Services with mocked DAL

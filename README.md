@@ -10,8 +10,8 @@ A Python/Streamlit application for recognizing and tracking student achievement 
 - **Python 3.11+** - Modern Python with type hints
 - **Streamlit** - Web application framework
 - **uv** - Fast package management and virtual environments
-- **PostgreSQL** - Database (Phase 4-5)
-- **Google Identity Services** - OAuth authentication (Phase 2)
+- **SQLite/PostgreSQL** - Database (SQLite for dev, PostgreSQL for production)
+- **Google Identity Services** - OAuth authentication (Phase 2B)
 - **Render** - Cloud deployment platform
 
 ## 📁 Project Structure
@@ -57,15 +57,20 @@ A Python/Streamlit application for recognizing and tracking student achievement 
 3. **Set up environment**
    ```bash
    cp .env.example .env
-   # Edit .env with your configuration
+   # Edit .env with your configuration (DATABASE_URL, ADMIN_EMAILS, etc.)
    ```
 
-4. **Install pre-commit hooks**
+4. **Initialize database**
+   ```bash
+   uv run alembic upgrade head
+   ```
+
+5. **Install pre-commit hooks**
    ```bash
    uv run pre-commit install
    ```
 
-5. **Run the application**
+6. **Run the application**
    ```bash
    uv run streamlit run app/main.py
    ```
@@ -122,10 +127,18 @@ This project follows a structured 10-phase development approach:
 - [x] Development tooling configuration
 - [x] Baseline documentation
 
-### Phase 2: Authentication & Session Management (Next)
-- Google Sign-In with email verification
-- Session management and user roles
-- Basic user table integration
+### Phase 2A: Authentication & User Management ✅
+- [x] Mock Google authentication system
+- [x] User database with SQLite + Alembic migrations
+- [x] Session management with timeout handling
+- [x] Role-based access control (admin/student)
+- [x] Admin bootstrap via environment variables
+- [x] Comprehensive test coverage (15/15 tests passing)
+
+### Phase 2B: Real Google OAuth (Planned)
+- Real Google Sign-In integration
+- Enhanced session security
+- Production authentication flows
 
 ### Upcoming Phases
 - Phase 3: Onboarding Flow
@@ -161,6 +174,12 @@ Each phase requires formal planning, approval, and acceptance before proceeding.
 - `uv run pytest` - Run test suite
 - `uv run ruff format .` - Format code
 - `uv run mypy app/` - Type checking
+
+### Database Operations
+- `uv run alembic upgrade head` - Apply database migrations
+- `uv run alembic revision --autogenerate -m "message"` - Create migration
+- `uv run alembic current` - Show current migration
+- `uv run alembic history` - Show migration history
 
 ### Quality Assurance
 - `uv run coverage run -m pytest` - Test with coverage
@@ -225,4 +244,4 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ---
 
-**Current Status**: Phase 1 Complete - Project scaffolding and development environment established.
+**Current Status**: Phase 2A Complete - Authentication and user management implemented with comprehensive testing.

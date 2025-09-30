@@ -17,14 +17,18 @@ class Settings(BaseSettings):
     # Logging
     log_level: str = "INFO"
 
-    # Future: Database settings (Phase 4-5)
-    # database_url: str = ""
+    # Database settings (Phase 2A)
+    database_url: str = ""
 
-    # Future: OAuth settings (Phase 2)
-    # google_client_id: str = ""
-    # google_client_secret: str = ""
+    # Authentication settings (Phase 2A)
+    google_client_id: str = ""
+    admin_emails: str = ""  # Comma-separated list of admin emails
 
-    # Future: Security settings (Phase 2)
+    # Development Settings
+    streamlit_server_headless: str = "false"
+    streamlit_server_port: str = "8501"
+
+    # Future: Security settings (Phase 2B)
     # app_secret_key: str = ""
 
     class Config:
