@@ -56,8 +56,8 @@ def test_submit_request_success(request_service, student_id):
 
 
 def test_submit_request_empty_badge_name(request_service, student_id):
-    """Test request submission with empty badge name."""
-    with pytest.raises(ValidationError, match="Badge name is required"):
+    """Test request submission with empty badge name and no mini_badge_id."""
+    with pytest.raises(ValidationError, match="Either badge_name or mini_badge_id is required"):
         request_service.submit_request(
             user_id=student_id,
             badge_name=""
@@ -65,7 +65,7 @@ def test_submit_request_empty_badge_name(request_service, student_id):
 
 
 def test_submit_request_whitespace_badge_name(request_service, student_id):
-    """Test request submission with whitespace-only badge name."""
+    """Test request submission with whitespace-only badge name and no mini_badge_id."""
     with pytest.raises(ValidationError, match="Badge name is required"):
         request_service.submit_request(
             user_id=student_id,

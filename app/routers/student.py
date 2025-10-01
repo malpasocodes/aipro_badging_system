@@ -3,6 +3,7 @@
 import streamlit as st
 
 from app.models.user import User
+from app.ui.catalog_browser import render_catalog_browser
 from app.ui.request_form import render_request_form, render_user_requests
 
 
@@ -41,17 +42,9 @@ def render_student_dashboard(user: User) -> None:
         - Download badge certificates
         """)
 
-    # Available Badges
-    with st.expander("🎯 Available Badges"):
-        st.info("**Coming in Phase 5**: Browse and request badges from catalog")
-        st.markdown("""
-        **Planned Features:**
-        - Browse all available badge programs
-        - View badge requirements and criteria
-        - See prerequisite badges
-        - Request badges directly from catalog
-        - View badge descriptions and learning outcomes
-        """)
+    # Available Badges - NEW in Phase 5
+    with st.expander("📚 Browse Badge Catalog", expanded=False):
+        render_catalog_browser(user)
 
     # My Progress
     with st.expander("📈 My Progress"):

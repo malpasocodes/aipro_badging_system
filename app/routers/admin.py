@@ -4,6 +4,7 @@ import streamlit as st
 
 from app.models.user import User
 from app.ui.approval_queue import render_approval_queue
+from app.ui.catalog_management import render_catalog_management
 from app.ui.roster import render_roster
 
 
@@ -29,17 +30,9 @@ def render_admin_dashboard(user: User) -> None:
     with st.expander("✅ Approval Queue"):
         render_approval_queue(user)
 
-    # Badge Catalog Management
-    with st.expander("🏆 Badge Catalog Management"):
-        st.info("**Coming in Phase 5**: Manage badge hierarchy and criteria")
-        st.markdown("""
-        **Planned Features:**
-        - Create and edit badge programs
-        - Define skills and mini-badges
-        - Set badge criteria and requirements
-        - Retire or archive badges
-        - View badge statistics and distribution
-        """)
+    # Badge Catalog Management - NEW in Phase 5
+    with st.expander("📚 Badge Catalog Management"):
+        render_catalog_management(user)
 
     # System Administration
     with st.expander("⚙️ System Administration"):

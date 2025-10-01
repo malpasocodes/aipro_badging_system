@@ -33,47 +33,87 @@ class AuthorizationError(RequestError):
 class RequestService:
     """Service for managing badge requests and approval workflow."""
 
-    def __init__(self):
+    def __init__(self, engine=None):
+        self.engine = engine
         self.audit_service = get_audit_service()
 
-    def submit_request(self, user_id: UUID, badge_name: str) -> Request:
+    def submit_request(
+        self,
+        user_id: UUID,
+        badge_name: Optional[str] = None,
+        mini_badge_id: Optional[UUID] = None
+    ) -> Request:
         """
         Submit a new badge request.
 
         Args:
             user_id: ID of the student submitting the request
-            badge_name: Name of the badge being requested (placeholder for Phase 4)
+            badge_name: Name of the badge (Phase 4 backward compatibility, deprecated)
+            mini_badge_id: ID of the mini-badge from catalog (Phase 5+, preferred)
 
         Returns:
             Created Request object
 
         Raises:
-            ValidationError: If badge_name is empty or invalid
+            ValidationError: If neither badge_name nor mini_badge_id provided
             RequestError: If user has pending request for same badge
 
         Example:
             >>> service = get_request_service()
-            >>> request = service.submit_request(student_id, "Python Fundamentals")
+            >>> # Phase 5+ (preferred)
+            >>> request = service.submit_request(student_id, mini_badge_id=badge_uuid)
+            >>> # Phase 4 (backward compatible)
+            >>> request = service.submit_request(student_id, badge_name="Python Fundamentals")
         """
-        # Validate badge_name
-        if not badge_name or not badge_name.strip():
-            raise ValidationError("Badge name is required")
+        # Validate input - require either badge_name or mini_badge_id
+        if not badge_name and not mini_badge_id:
+            raise ValidationError("Either badge_name or mini_badge_id is required")
 
-        badge_name = badge_name.strip()
+        # Phase 4 backward compatibility: badge_name
+        if badge_name:
+            badge_name = badge_name.strip()
+            if not badge_name:
+                raise ValidationError("Badge name is required")
+            if len(badge_name) > 200:
+                raise ValidationError("Badge name must be 200 characters or less")
 
-        if len(badge_name) > 200:
-            raise ValidationError("Badge name must be 200 characters or less")
+        # Phase 5: Validate mini_badge_id exists in catalog
+        if mini_badge_id:
+            from app.services.catalog_service import get_catalog_service
+            catalog_service = get_catalog_service(engine=self.engine)
+            mini_badge = catalog_service.get_mini_badge(mini_badge_id)
 
-        engine = get_engine()
+            if not mini_badge:
+                raise ValidationError(f"Mini-badge {mini_badge_id} not found in catalog")
+
+            if not mini_badge.is_active:
+                raise ValidationError(f"Badge '{mini_badge.title}' is not currently active")
+
+            # Use badge title for display
+            if not badge_name:
+                badge_name = mini_badge.title
+
+        engine = self.engine or get_engine()
 
         with Session(engine) as session:
-            # Check for existing pending request for same badge
-            statement = (
-                select(Request)
-                .where(Request.user_id == user_id)
-                .where(Request.badge_name == badge_name)
-                .where(Request.status == RequestStatus.PENDING)
-            )
+            # Check for existing pending request
+            if mini_badge_id:
+                # Phase 5: Check by mini_badge_id
+                statement = (
+                    select(Request)
+                    .where(Request.user_id == user_id)
+                    .where(Request.mini_badge_id == mini_badge_id)
+                    .where(Request.status == RequestStatus.PENDING)
+                )
+            else:
+                # Phase 4: Check by badge_name
+                statement = (
+                    select(Request)
+                    .where(Request.user_id == user_id)
+                    .where(Request.badge_name == badge_name)
+                    .where(Request.status == RequestStatus.PENDING)
+                )
+
             existing_request = session.exec(statement).first()
 
             if existing_request:
@@ -84,6 +124,7 @@ class RequestService:
             # Create new request
             request = Request(
                 user_id=user_id,
+                mini_badge_id=mini_badge_id,
                 badge_name=badge_name,
                 status=RequestStatus.PENDING,
             )
@@ -97,6 +138,7 @@ class RequestService:
                 request_id=str(request.id),
                 user_id=str(user_id),
                 badge_name=badge_name,
+                mini_badge_id=str(mini_badge_id) if mini_badge_id else None,
             )
 
             return request
@@ -120,7 +162,7 @@ class RequestService:
         Returns:
             List of Request objects, ordered by submitted_at DESC
         """
-        engine = get_engine()
+        engine = self.engine or get_engine()
 
         with Session(engine) as session:
             statement = select(Request).where(Request.user_id == user_id)
@@ -152,7 +194,7 @@ class RequestService:
         Returns:
             List of pending Request objects, ordered by submitted_at ASC (oldest first)
         """
-        engine = get_engine()
+        engine = self.engine or get_engine()
 
         with Session(engine) as session:
             statement = (
@@ -183,7 +225,7 @@ class RequestService:
         Returns:
             List of Request objects, ordered by submitted_at DESC
         """
-        engine = get_engine()
+        engine = self.engine or get_engine()
 
         with Session(engine) as session:
             statement = select(Request)
@@ -210,7 +252,7 @@ class RequestService:
         Returns:
             Request object if found, None otherwise
         """
-        engine = get_engine()
+        engine = self.engine or get_engine()
 
         with Session(engine) as session:
             statement = select(Request).where(Request.id == request_id)
@@ -245,7 +287,7 @@ class RequestService:
                 "Only admins and assistants can approve requests"
             )
 
-        engine = get_engine()
+        engine = self.engine or get_engine()
 
         with Session(engine) as session:
             # Get request
@@ -332,7 +374,7 @@ class RequestService:
         if not reason or not reason.strip():
             raise ValidationError("Reason is required for rejection")
 
-        engine = get_engine()
+        engine = self.engine or get_engine()
 
         with Session(engine) as session:
             # Get request
@@ -393,7 +435,7 @@ class RequestService:
         Returns:
             Count of pending requests
         """
-        engine = get_engine()
+        engine = self.engine or get_engine()
 
         with Session(engine) as session:
             statement = select(Request).where(Request.status == RequestStatus.PENDING)
@@ -402,6 +444,6 @@ class RequestService:
 
 
 # Service factory function
-def get_request_service() -> RequestService:
+def get_request_service(engine=None) -> RequestService:
     """Get an instance of RequestService."""
-    return RequestService()
+    return RequestService(engine=engine)

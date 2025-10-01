@@ -5,6 +5,7 @@ import streamlit as st
 from app.models.user import User
 from app.models.request import RequestStatus
 from app.services.request_service import get_request_service, RequestError, ValidationError
+from app.ui.badge_picker import render_badge_picker
 
 
 def render_request_form(user: User) -> None:
@@ -16,21 +17,13 @@ def render_request_form(user: User) -> None:
     """
     st.markdown("### 📝 Request a Badge")
     st.markdown(
-        "Request a badge by entering its name below. Your request will be reviewed "
+        "Select a badge from the catalog below. Your request will be reviewed "
         "by instructors and assistants."
-    )
-    st.info(
-        "**Note:** This is a placeholder form for Phase 4. In Phase 5, you'll be able to "
-        "browse and select from a full badge catalog."
     )
 
     with st.form("badge_request_form", clear_on_submit=True):
-        badge_name = st.text_input(
-            "Badge Name *",
-            max_chars=200,
-            placeholder="e.g., Python Fundamentals",
-            help="Enter the name of the badge you want to request"
-        )
+        # Use badge picker (Phase 5+)
+        mini_badge_id = render_badge_picker(key_prefix="request_form")
 
         submitted = st.form_submit_button(
             "Submit Request",
@@ -40,8 +33,8 @@ def render_request_form(user: User) -> None:
 
         if submitted:
             # Validate input
-            if not badge_name or not badge_name.strip():
-                st.error("❌ Badge name is required")
+            if not mini_badge_id:
+                st.error("❌ Please select a badge to request")
                 return
 
             # Submit request
@@ -49,7 +42,7 @@ def render_request_form(user: User) -> None:
                 request_service = get_request_service()
                 request = request_service.submit_request(
                     user_id=user.id,
-                    badge_name=badge_name.strip(),
+                    mini_badge_id=mini_badge_id,
                 )
 
                 st.success(

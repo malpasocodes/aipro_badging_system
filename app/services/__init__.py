@@ -2,6 +2,14 @@
 
 from .audit_service import AuditService, get_audit_service
 from .auth import AuthService, AuthenticationError, MockAuthService
+from .catalog_service import (
+    CatalogService,
+    get_catalog_service,
+    CatalogError,
+    AuthorizationError as CatalogAuthorizationError,
+    NotFoundError,
+    ValidationError as CatalogValidationError,
+)
 from .oauth import OAuthSyncService, OAuth2MockService, get_oauth_service
 from .onboarding import (
     OnboardingService,
@@ -28,6 +36,12 @@ __all__ = [
     "AuthService",
     "AuthenticationError",
     "MockAuthService",
+    "CatalogService",
+    "get_catalog_service",
+    "CatalogError",
+    "CatalogAuthorizationError",
+    "NotFoundError",
+    "CatalogValidationError",
     "OAuthSyncService",
     "OAuth2MockService",
     "get_oauth_service",

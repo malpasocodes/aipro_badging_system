@@ -8,6 +8,9 @@ from .auth import (
     require_authentication,
     require_admin
 )
+from .badge_picker import render_badge_picker, render_badge_picker_compact
+from .catalog_browser import render_catalog_browser, render_catalog_search
+from .catalog_management import render_catalog_management
 from .oauth_auth import (
     render_oauth_signin,
     render_oauth_user_info,
@@ -45,4 +48,10 @@ __all__ = [
     "render_user_requests",
     "render_approval_queue",
     "render_roster",
+    # Catalog Management (Phase 5)
+    "render_badge_picker",
+    "render_badge_picker_compact",
+    "render_catalog_browser",
+    "render_catalog_search",
+    "render_catalog_management",
 ]

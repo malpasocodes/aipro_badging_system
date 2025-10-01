@@ -16,6 +16,10 @@ logger = get_logger(__name__)
 class AuditService:
     """Service for logging and querying audit trails of privileged operations."""
 
+    def __init__(self, engine=None):
+        """Initialize audit service with optional engine."""
+        self.engine = engine
+
     def log_action(
         self,
         actor_user_id: Optional[UUID],
@@ -47,7 +51,7 @@ class AuditService:
             ...     context_data={"reason": "Completed successfully", "status": "approved"}
             ... )
         """
-        engine = get_engine()
+        engine = self.engine or get_engine()
 
         with Session(engine) as session:
             audit_log = AuditLog(
@@ -104,7 +108,7 @@ class AuditService:
         # Enforce maximum limit
         limit = min(limit, 1000)
 
-        engine = get_engine()
+        engine = self.engine or get_engine()
 
         with Session(engine) as session:
             # Build query with optional filters
@@ -148,7 +152,7 @@ class AuditService:
         Returns:
             AuditLog if found, None otherwise
         """
-        engine = get_engine()
+        engine = self.engine or get_engine()
 
         with Session(engine) as session:
             statement = select(AuditLog).where(AuditLog.id == audit_log_id)
@@ -171,7 +175,7 @@ class AuditService:
         Returns:
             Count of matching audit log entries
         """
-        engine = get_engine()
+        engine = self.engine or get_engine()
 
         with Session(engine) as session:
             statement = select(AuditLog)
