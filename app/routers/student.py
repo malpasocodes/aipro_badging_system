@@ -3,6 +3,7 @@
 import streamlit as st
 
 from app.models.user import User
+from app.ui.request_form import render_request_form, render_user_requests
 
 
 def render_student_dashboard(user: User) -> None:
@@ -19,8 +20,16 @@ def render_student_dashboard(user: User) -> None:
     # Student-specific features
     st.markdown("### 🏅 Your Badge Journey")
 
+    # Request a Badge (NEW in Phase 4)
+    with st.expander("📝 Request a Badge", expanded=False):
+        render_request_form(user)
+
+    # My Requests (NEW in Phase 4)
+    with st.expander("📋 My Badge Requests", expanded=True):
+        render_user_requests(user)
+
     # My Badges
-    with st.expander("🏆 My Badges", expanded=True):
+    with st.expander("🏆 My Badges"):
         st.info("**Coming in Phase 6**: View your earned badges and progress")
         st.markdown("""
         **Planned Features:**
@@ -34,28 +43,14 @@ def render_student_dashboard(user: User) -> None:
 
     # Available Badges
     with st.expander("🎯 Available Badges"):
-        st.info("**Coming in Phase 5**: Browse and request badges")
+        st.info("**Coming in Phase 5**: Browse and request badges from catalog")
         st.markdown("""
         **Planned Features:**
         - Browse all available badge programs
         - View badge requirements and criteria
         - See prerequisite badges
-        - Request new badges
-        - Track request status
+        - Request badges directly from catalog
         - View badge descriptions and learning outcomes
-        """)
-
-    # My Requests
-    with st.expander("📝 My Badge Requests"):
-        st.info("**Coming in Phase 4**: Track your badge requests")
-        st.markdown("""
-        **Planned Features:**
-        - View pending badge requests
-        - See approval/rejection status
-        - Read feedback from instructors
-        - Resubmit rejected requests
-        - View request history
-        - Upload evidence and documentation
         """)
 
     # My Progress

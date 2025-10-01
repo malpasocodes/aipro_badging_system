@@ -31,7 +31,7 @@ uv.lock          # dependency lockfile
 
 ## Development Commands
 
-**Current Status:** Phase 2B (Real Google OAuth) is provisionally accepted. The following commands are available:
+**Current Status:** Phase 4 (Roles & Approvals Queue) is complete and accepted. The following commands are available:
 
 ### Environment Setup
 ```bash
@@ -82,22 +82,30 @@ rm badging_system.db && uv run alembic upgrade head
 
 ## Architecture Highlights
 
-### Data Model (Current - Phase 2B)
-- **users**: Google OAuth integration with roles (admin/student)
-  - Fields: id, email, username, google_sub, role, created_at, updated_at, last_login_at
-  - Roles: admin (from ADMIN_EMAILS), student (default)
+### Data Model (Current - Phase 4)
+- **users**: Google OAuth integration with roles (admin/assistant/student)
+  - Fields: id, email, username, google_sub, role, onboarding fields, timestamps
+  - Roles: admin (from ADMIN_EMAILS), assistant, student (default)
   - OAuth sync via OAuthSyncService
+- **requests**: Badge request approval workflow
+  - Fields: id, user_id, badge_name, status (pending/approved/rejected), decision tracking
+  - Indexes on user_id, status, submitted_at
+- **audit_logs**: Complete audit trail for privileged operations
+  - Fields: id, actor_user_id, action, entity, entity_id, context_data (JSON), created_at
+  - Logs all approve/reject/role-change actions
 
-### Future Data Model (Phases 3-8)
+### Future Data Model (Phases 5-8)
 - **Badge Hierarchy**: programs → skills → mini_badges → capstones
-- **requests**: Badge approval workflow with audit trail
 - **awards**: Earned badges with automatic progression logic
 - **notifications**: In-app messaging system
-- **audit_logs**: Complete audit trail for all privileged operations
 
 ### Key Services (Implemented)
 - **AuthService** (app/services/auth.py): User management and role assignment
 - **OAuthSyncService** (app/services/oauth.py): Streamlit OAuth integration and user synchronization
+- **OnboardingService** (app/services/onboarding.py): User registration and profile management
+- **RequestService** (app/services/request_service.py): Badge request submission and approval workflow
+- **AuditService** (app/services/audit_service.py): Centralized audit logging
+- **RosterService** (app/services/roster_service.py): User roster management and role updates
 - **OAuth2MockService** (app/services/oauth.py): Mock OAuth for testing
 
 ### Future Services (Phases 3-8)

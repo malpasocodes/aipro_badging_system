@@ -3,6 +3,8 @@
 import streamlit as st
 
 from app.models.user import User
+from app.ui.approval_queue import render_approval_queue
+from app.ui.roster import render_roster
 
 
 def render_assistant_dashboard(user: User) -> None:
@@ -19,30 +21,13 @@ def render_assistant_dashboard(user: User) -> None:
     # Assistant-specific features
     st.markdown("### ✅ Assistant Functions")
 
-    # Approval Queue (Primary function)
+    # Approval Queue (Primary function) - NEW in Phase 4
     with st.expander("📋 Badge Approval Queue", expanded=True):
-        st.info("**Coming in Phase 4**: Review and approve student badge requests")
-        st.markdown("""
-        **Planned Features:**
-        - View pending badge requests assigned to you
-        - Filter requests by badge type, student, or date
-        - Review student submissions and evidence
-        - Approve or reject requests with feedback notes
-        - View your approval history and statistics
-        - Bulk actions for common approvals
-        """)
+        render_approval_queue(user)
 
-    # Student Roster View
+    # Student Roster View - NEW in Phase 4 (read-only for assistants)
     with st.expander("👥 Student Roster"):
-        st.info("**Coming in Phase 4**: View students and their progress")
-        st.markdown("""
-        **Planned Features:**
-        - View all students in the program
-        - See student badge progress and awards
-        - Filter and search students
-        - View student contact information
-        - Export student roster (with PII redaction)
-        """)
+        render_roster(user, can_edit_roles=False)
 
     # Badge Information
     with st.expander("🏆 Badge Catalog (Read-Only)"):

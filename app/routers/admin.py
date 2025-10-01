@@ -3,6 +3,8 @@
 import streamlit as st
 
 from app.models.user import User
+from app.ui.approval_queue import render_approval_queue
+from app.ui.roster import render_roster
 
 
 def render_admin_dashboard(user: User) -> None:
@@ -19,17 +21,13 @@ def render_admin_dashboard(user: User) -> None:
     # Admin-specific features
     st.markdown("### 🔧 Admin Functions")
 
-    # User Management section
+    # User Management section - NEW in Phase 4 (with role editing)
     with st.expander("👥 User Management", expanded=True):
-        st.info("**Coming in Phase 4**: Manage users, roles, and permissions")
-        st.markdown("""
-        **Planned Features:**
-        - View all users (students, assistants, admins)
-        - Assign and modify user roles
-        - Activate/deactivate user accounts
-        - View user activity and login history
-        - Export user roster with PII redaction options
-        """)
+        render_roster(user, can_edit_roles=True)
+
+    # Approval Queue (Admin can approve too) - NEW in Phase 4
+    with st.expander("✅ Approval Queue"):
+        render_approval_queue(user)
 
     # Badge Catalog Management
     with st.expander("🏆 Badge Catalog Management"):
@@ -41,18 +39,6 @@ def render_admin_dashboard(user: User) -> None:
         - Set badge criteria and requirements
         - Retire or archive badges
         - View badge statistics and distribution
-        """)
-
-    # Approval Queue (Admin can approve too)
-    with st.expander("✅ Approval Queue"):
-        st.info("**Coming in Phase 4**: Review and approve badge requests")
-        st.markdown("""
-        **Planned Features:**
-        - View pending badge requests
-        - Approve or reject requests with notes
-        - Bulk approval actions
-        - View approval history
-        - Assign requests to assistants
         """)
 
     # System Administration

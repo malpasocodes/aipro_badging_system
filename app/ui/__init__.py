@@ -1,5 +1,6 @@
 """UI helpers, components, and Streamlit theming."""
 
+from .approval_queue import render_approval_queue
 from .auth import (
     render_google_signin,
     render_user_info,
@@ -19,6 +20,8 @@ from .onboarding import (
     render_onboarding_form,
     render_onboarding_status
 )
+from .request_form import render_request_form, render_user_requests
+from .roster import render_roster
 
 __all__ = [
     # Legacy authentication (Phase 2A)
@@ -36,5 +39,10 @@ __all__ = [
     "is_oauth_available",
     # Onboarding (Phase 3)
     "render_onboarding_form",
-    "render_onboarding_status"
+    "render_onboarding_status",
+    # Requests and Approvals (Phase 4)
+    "render_request_form",
+    "render_user_requests",
+    "render_approval_queue",
+    "render_roster",
 ]
