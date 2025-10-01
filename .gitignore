@@ -128,8 +128,9 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-# Streamlit
-.streamlit/
+# Streamlit secrets (keep example file)
+.streamlit/secrets.toml
+.streamlit/config.toml
 
 # IDE
 .vscode/settings.json
@@ -152,6 +153,10 @@ logs/
 !docs/logs/
 *.log
 audit-results.json
+
+# Database files (SQLite development database)
+badging_system.db
+*.db
 
 # uv
 .uv/
