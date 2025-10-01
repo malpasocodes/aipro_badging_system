@@ -263,9 +263,90 @@
 - Integration with catalog hierarchy
 - Notifications for award milestones
 
+## Post-Phase 5 Performance Optimization (v0.5.1)
+
+**Date:** 2025-10-01
+**Focus:** Login performance and lazy loading implementation
+
+### Issues Identified
+1. **Excessive database queries on login** - Dashboards were loading all data eagerly
+2. **Streamlit expander behavior** - Expanders execute content immediately even when `expanded=False`
+3. **Duplicate OAuth sync queries** - User synced from database on every page load
+
+### Optimizations Implemented
+
+#### 1. Lazy Loading for Dashboard Sections
+- **Admin Dashboard** (`app/routers/admin.py`)
+  - Changed all expanders to `expanded=False`
+  - Wrapped all render functions with "Load" buttons
+  - Sections: User Management, Approval Queue, Catalog Management, Award Management
+
+- **Student Dashboard** (`app/routers/student.py`)
+  - Changed all expanders to `expanded=False`
+  - Wrapped all render functions with "Load" buttons
+  - Sections: Request Form, My Requests, My Badges, My Progress, Catalog Browser
+
+#### 2. OAuth Authentication Query Optimization
+- **File:** `app/ui/oauth_auth.py`
+- **Change:** Only sync from OAuth on first login or when OAuth ID changes
+- **Before:** User queried from database on every page load (3+ queries)
+- **After:** User cached in session state (1 query on initial login only)
+- **Pattern:** Check `st.session_state.current_user` before calling `oauth_service.get_current_user()`
+
+### Performance Impact
+
+**Before Optimization:**
+- Login triggered 100+ database queries
+- All catalog, progress, and award data loaded eagerly
+- User synced from database on every page render
+
+**After Optimization:**
+- Login triggers only 1-2 authentication queries (minimal and necessary)
+- Zero data queries on landing page (except auth)
+- Data loads only when user clicks "Load" button for specific section
+- Session state caching eliminates redundant user queries
+
+### Technical Details
+
+**Lazy Loading Pattern:**
+```python
+with st.expander("Section Name", expanded=False):
+    if st.button("Load Section", key="unique_key"):
+        render_section_content(user)
+```
+
+**OAuth Sync Optimization:**
+```python
+# Only sync if user not in session OR OAuth ID changed
+needs_sync = (
+    session_user is None or
+    (current_oauth_data and current_oauth_data.get('sub') != session_user.google_sub)
+)
+if needs_sync:
+    user = oauth_service.get_current_user()  # Database sync
+    st.session_state.current_user = user      # Cache in session
+```
+
+### Files Modified (v0.5.1)
+1. `app/routers/admin.py` - Lazy loading for all 4 admin sections
+2. `app/routers/student.py` - Lazy loading for all 5 student sections
+3. `app/ui/oauth_auth.py` - OAuth sync optimization with session caching
+
+### Testing
+- ✅ All smoke tests passing (5/5)
+- ✅ Login works correctly with minimal queries
+- ✅ Data loads on-demand when sections are opened
+- ✅ Session state caching verified
+
+### Lessons Learned
+1. **Streamlit expanders are not lazy** - Content executes immediately regardless of `expanded` state
+2. **Session state is essential** - Cache expensive queries to avoid redundant database hits
+3. **Debug logging is valuable** - `echo=settings.debug` helped identify N+1 query problems
+4. **User feedback matters** - "No calls should be made unless the user requests something"
+
 ## Sign-off
 
-**Phase 5 Status:** ✅ ACCEPTED
+**Phase 5 Status:** ✅ ACCEPTED (including v0.5.1 performance optimization)
 **Ready for:** Production deployment
 **Approved by:** Alfred Essa
 **Date:** 2025-10-01

@@ -338,6 +338,48 @@ class RequestService:
                 student_id=str(request.user_id),
             )
 
+            # Phase 6: Award mini-badge and trigger progression checks
+            if request.mini_badge_id:
+                from app.services.progress_service import get_progress_service, ProgressError
+
+                progress_service = get_progress_service(engine=self.engine)
+                try:
+                    awards = progress_service.award_mini_badge(
+                        user_id=request.user_id,
+                        mini_badge_id=request.mini_badge_id,
+                        request_id=request.id,
+                        awarded_by=approver_id
+                    )
+
+                    logger.info(
+                        "Progression check complete",
+                        user_id=str(request.user_id),
+                        mini_badge_id=str(request.mini_badge_id),
+                        awards_granted=len(awards),
+                        award_types=[a.award_type.value for a in awards],
+                    )
+
+                except ProgressError as e:
+                    # Log error but don't fail the approval
+                    logger.error(
+                        "Progression check failed",
+                        user_id=str(request.user_id),
+                        mini_badge_id=str(request.mini_badge_id),
+                        error=str(e),
+                        error_type=type(e).__name__,
+                    )
+                    # Admin can manually trigger progression later if needed
+
+                except Exception as e:
+                    # Catch any unexpected errors
+                    logger.error(
+                        "Unexpected error during progression",
+                        user_id=str(request.user_id),
+                        mini_badge_id=str(request.mini_badge_id),
+                        error=str(e),
+                        error_type=type(e).__name__,
+                    )
+
             return request
 
     def reject_request(

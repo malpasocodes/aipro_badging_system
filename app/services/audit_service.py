@@ -194,6 +194,6 @@ class AuditService:
 
 
 # Service factory function
-def get_audit_service() -> AuditService:
+def get_audit_service(engine=None) -> AuditService:
     """Get an instance of AuditService."""
-    return AuditService()
+    return AuditService(engine=engine)

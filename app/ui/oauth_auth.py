@@ -19,19 +19,34 @@ def render_oauth_signin() -> None:
     # Check if OAuth authentication just completed
     oauth_service = get_oauth_service()
 
-    if oauth_service.is_authenticated() and 'current_user' not in st.session_state:
-        # User just authenticated via OAuth, sync with database
-        user = oauth_service.get_current_user()
-        if user:
-            st.session_state.current_user = user
-            st.session_state.auth_method = "oauth"
-            logger.info("OAuth user authenticated", user_id=str(user.id), email=user.email)
-            st.success(f"✅ Signed in successfully as {user.email}")
-            st.rerun()
-        else:
-            st.error("Failed to sync user data. Please try signing in again.")
-            if hasattr(st, 'logout'):
-                st.logout()
+    # Only sync from OAuth if:
+    # 1. User is authenticated via OAuth (st.user.is_logged_in)
+    # 2. User is NOT already in session state (first login)
+    # 3. OAuth user data has changed (check by comparing google_sub)
+    if oauth_service.is_authenticated():
+        # Check if we need to sync from OAuth
+        current_oauth_data = oauth_service.get_oauth_user_info()
+        session_user = st.session_state.get('current_user')
+
+        # Only sync if user not in session OR OAuth ID changed
+        needs_sync = (
+            session_user is None or
+            (current_oauth_data and current_oauth_data.get('sub') != session_user.google_sub)
+        )
+
+        if needs_sync:
+            # User just authenticated or changed - sync with database
+            user = oauth_service.get_current_user()
+            if user:
+                st.session_state.current_user = user
+                st.session_state.auth_method = "oauth"
+                logger.info("OAuth user authenticated", user_id=str(user.id), email=user.email)
+                st.success(f"✅ Signed in successfully as {user.email}")
+                st.rerun()
+            else:
+                st.error("Failed to sync user data. Please try signing in again.")
+                if hasattr(st, 'logout'):
+                    st.logout()
     else:
         # User not authenticated, show sign-in options
         col1, col2 = st.columns([2, 1])

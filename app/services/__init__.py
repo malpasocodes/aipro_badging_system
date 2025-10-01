@@ -17,6 +17,12 @@ from .onboarding import (
     OnboardingError,
     ValidationError,
 )
+from .progress_service import (
+    ProgressService,
+    get_progress_service,
+    ProgressError,
+    DuplicateAwardError,
+)
 from .request_service import (
     RequestService,
     get_request_service,
@@ -49,6 +55,10 @@ __all__ = [
     "get_onboarding_service",
     "OnboardingError",
     "ValidationError",
+    "ProgressService",
+    "get_progress_service",
+    "ProgressError",
+    "DuplicateAwardError",
     "RequestService",
     "get_request_service",
     "RequestError",
