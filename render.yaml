@@ -6,19 +6,17 @@ services:
   # Web Service - Streamlit Application
   - type: web
     name: aippro-badging-system
-    runtime: python
+    env: python
     plan: free  # Change to 'starter' or higher for production
     region: oregon  # Change to your preferred region
     branch: main
     buildCommand: pip install -r requirements.txt
-    startCommand: streamlit run app/main.py --server.port $PORT --server.address 0.0.0.0 --server.headless true
+    startCommand: alembic upgrade head && streamlit run app/main.py --server.port $PORT --server.address 0.0.0.0 --server.headless true
     healthCheckPath: /_stcore/health
+    autoDeploy: true
 
     # Environment Variables
     envVars:
-      - key: PYTHON_VERSION
-        value: "3.11"
-
       - key: APP_ENV
         value: production
 
@@ -40,6 +38,10 @@ services:
 
       # Optional: Google Client ID (if different from secrets.toml)
       - key: GOOGLE_CLIENT_ID
+        sync: false  # Managed manually in Render Dashboard
+
+      # Optional: Google Client Secret (if different from secrets.toml)
+      - key: GOOGLE_CLIENT_SECRET
         sync: false  # Managed manually in Render Dashboard
 
     # Secret Files - OAuth Configuration
