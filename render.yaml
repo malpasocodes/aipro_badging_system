@@ -1,0 +1,86 @@
+# Render Blueprint for AIPPRO Badging System
+# This file defines the infrastructure configuration for deploying on Render.com
+# Documentation: https://render.com/docs/blueprint-spec
+
+services:
+  # Web Service - Streamlit Application
+  - type: web
+    name: aippro-badging-system
+    runtime: python
+    plan: free  # Change to 'starter' or higher for production
+    region: oregon  # Change to your preferred region
+    branch: main
+    buildCommand: pip install -r requirements.txt
+    startCommand: streamlit run app/main.py --server.port $PORT --server.address 0.0.0.0 --server.headless true
+    healthCheckPath: /_stcore/health
+
+    # Environment Variables
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11"
+
+      - key: APP_ENV
+        value: production
+
+      - key: DEBUG
+        value: "false"
+
+      - key: LOG_LEVEL
+        value: INFO
+
+      - key: DATABASE_URL
+        fromDatabase:
+          name: aippro-badging-db
+          property: connectionString
+
+      # IMPORTANT: Set this in Render Dashboard after deployment
+      # Format: email1@example.com,email2@example.com
+      - key: ADMIN_EMAILS
+        sync: false  # Managed manually in Render Dashboard
+
+      # Optional: Google Client ID (if different from secrets.toml)
+      - key: GOOGLE_CLIENT_ID
+        sync: false  # Managed manually in Render Dashboard
+
+    # Secret Files - OAuth Configuration
+    # IMPORTANT: Create this file in Render Dashboard under "Secret Files"
+    # Path: .streamlit/secrets.toml
+    # Content: See .streamlit/secrets.toml.example for template
+    # Required fields:
+    #   - auth.client_id
+    #   - auth.client_secret
+    #   - auth.cookie_secret (generate with: python -c "import secrets; print(secrets.token_urlsafe(32))")
+    #   - auth.redirect_uri (set to: https://your-app-name.onrender.com/oauth2callback)
+
+databases:
+  # PostgreSQL Database
+  - name: aippro-badging-db
+    databaseName: aippro_badging_system
+    plan: free  # Change to 'starter' or higher for production
+    region: oregon  # Should match web service region
+    ipAllowList: []  # Empty = allow all IPs (default for free tier)
+
+# Deployment Notes:
+# 1. Push this file to your GitHub repository root
+# 2. Connect repository to Render via Dashboard or render.yaml
+# 3. Create Secret File in Render Dashboard:
+#    - Go to Service > Environment > Secret Files
+#    - Add file: .streamlit/secrets.toml
+#    - Copy content from .streamlit/secrets.toml.example
+#    - Update with production values:
+#      * redirect_uri: https://your-app-name.onrender.com/oauth2callback
+#      * client_id: Your Google OAuth Client ID
+#      * client_secret: Your Google OAuth Client Secret
+#      * cookie_secret: Generate new 32-char secret
+# 4. Set ADMIN_EMAILS environment variable in Render Dashboard
+# 5. Database migrations will run automatically via Alembic on first deploy
+# 6. Update Google OAuth Console:
+#    - Add redirect URI: https://your-app-name.onrender.com/oauth2callback
+#    - Add authorized domain: your-app-name.onrender.com
+#
+# For production deployment:
+# - Upgrade to paid plans for better performance and uptime
+# - Enable continuous deployment from main branch
+# - Set up custom domain if needed
+# - Configure health checks and monitoring
+# - Enable database backups
