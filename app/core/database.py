@@ -15,10 +15,17 @@ def get_engine():
     if not settings.database_url:
         raise ValueError("DATABASE_URL not configured")
 
+    # Convert PostgreSQL URLs to use psycopg3 driver instead of psycopg2
+    # Render provides postgresql:// URLs, but we use psycopg[binary] (psycopg3)
+    # SQLAlchemy needs postgresql+psycopg:// to use the psycopg3 driver
+    database_url = settings.database_url
+    if database_url.startswith("postgresql://"):
+        database_url = database_url.replace("postgresql://", "postgresql+psycopg://", 1)
+
     # SQL echo disabled by default for security - SQL queries can contain sensitive data
     # Enable only via DATABASE_ECHO=true in .env for debugging
     engine = create_engine(
-        settings.database_url,
+        database_url,
         echo=settings.database_echo,  # SQL logging (disabled by default)
         pool_pre_ping=True,            # Verify connections before use
     )

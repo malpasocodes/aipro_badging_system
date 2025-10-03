@@ -24,7 +24,15 @@ if config.config_file_name is not None:
 
 # Set the database URL from our settings
 settings = get_settings()
-config.set_main_option("sqlalchemy.url", settings.database_url)
+
+# Convert PostgreSQL URLs to use psycopg3 driver instead of psycopg2
+# Render provides postgresql:// URLs, but we use psycopg[binary] (psycopg3)
+# SQLAlchemy needs postgresql+psycopg:// to use the psycopg3 driver
+database_url = settings.database_url
+if database_url.startswith("postgresql://"):
+    database_url = database_url.replace("postgresql://", "postgresql+psycopg://", 1)
+
+config.set_main_option("sqlalchemy.url", database_url)
 
 # add your model's MetaData object here
 # for 'autogenerate' support
