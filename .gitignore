@@ -130,7 +130,7 @@ dmypy.json
 
 # Streamlit secrets (keep example file)
 .streamlit/secrets.toml
-.streamlit/config.toml
+# Note: .streamlit/config.toml is safe to commit (contains no secrets)
 
 # IDE
 .vscode/settings.json

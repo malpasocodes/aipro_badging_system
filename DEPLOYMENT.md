@@ -96,44 +96,46 @@ Render will create:
 - ✅ Web Service: `aippro-badging-system`
 - ✅ PostgreSQL Database: `aippro-badging-db`
 
-### Step 2: Configure Secret Files
+### Step 2: Configure Secrets via Environment Variables
 
-**IMPORTANT:** You must create the Streamlit secrets file manually.
+**IMPORTANT:** Render's Secret Files feature doesn't allow forward slashes in filenames, so we use Streamlit's environment variable support instead.
+
+Streamlit automatically reads secrets from environment variables prefixed with `STREAMLIT_`.
 
 1. Go to your web service: **aippro-badging-system**
-2. Navigate to **Environment** → **Secret Files**
-3. Click **"Add Secret File"**
-4. Set **Filename:** `.streamlit/secrets.toml`
-5. **Content:** Paste the following (update with your values):
+2. Navigate to **Environment** → **Environment Variables**
+3. Add the following variables (in addition to those in Step 3):
 
-```toml
-[auth]
-client_id = "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com"
-client_secret = "YOUR_GOOGLE_CLIENT_SECRET"
-redirect_uri = "https://aippro-badging-system.onrender.com/oauth2callback"
-cookie_secret = "YOUR_32_CHARACTER_SECRET_FROM_STEP_3"
-server_metadata_url = "https://accounts.google.com/.well-known/openid-configuration"
+| Key | Value | Notes |
+|-----|-------|-------|
+| `STREAMLIT_AUTH_CLIENT_ID` | `YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com` | Your Google OAuth Client ID |
+| `STREAMLIT_AUTH_CLIENT_SECRET` | `YOUR_GOOGLE_CLIENT_SECRET` | Your Google OAuth Client Secret |
+| `STREAMLIT_AUTH_COOKIE_SECRET` | `YOUR_32_CHARACTER_SECRET_FROM_STEP_3` | New cookie secret for production |
+| `STREAMLIT_AUTH_REDIRECT_URI` | `https://aippro-badging-system.onrender.com/oauth2callback` | Production redirect URI (update with your actual Render URL) |
+| `STREAMLIT_AUTH_SERVER_METADATA_URL` | `https://accounts.google.com/.well-known/openid-configuration` | Google OIDC metadata |
+| `STREAMLIT_GENERAL_DEBUG` | `false` | Disable debug mode in production |
+| `STREAMLIT_GENERAL_ENABLE_MOCK_AUTH` | `false` | Disable mock auth in production |
 
-[general]
-debug = false
-enable_mock_auth = false
-```
+**How it works:**
+- `STREAMLIT_AUTH_CLIENT_ID` → `st.secrets["auth"]["client_id"]`
+- `STREAMLIT_AUTH_CLIENT_SECRET` → `st.secrets["auth"]["client_secret"]`
+- `STREAMLIT_GENERAL_DEBUG` → `st.secrets["general"]["debug"]`
 
-6. Click **"Save Changes"**
+No code changes required - your existing code using `st.secrets` will work automatically.
 
 **Note:** Replace `aippro-badging-system` with your actual Render service name if different.
 
-### Step 3: Configure Environment Variables
+For more details, see `RENDER_SECRETS_SETUP.md` in the repository.
 
-In the Render Dashboard, go to **Environment** → **Environment Variables**.
+### Step 3: Configure Additional Environment Variables
 
-Set the following variables (they should be marked with `sync: false` in render.yaml, so you need to add them manually):
+In the Render Dashboard (still in **Environment** → **Environment Variables**), add this additional variable:
 
 | Key | Value | Example |
 |-----|-------|---------|
 | `ADMIN_EMAILS` | Comma-separated admin emails | `admin@example.com,admin2@example.com` |
-| `GOOGLE_CLIENT_ID` | Your Google OAuth Client ID | `123456.apps.googleusercontent.com` |
-| `GOOGLE_CLIENT_SECRET` | Your Google OAuth Client Secret | `GOCSPX-abc123...` |
+
+**Note:** `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are now configured via `STREAMLIT_AUTH_CLIENT_ID` and `STREAMLIT_AUTH_CLIENT_SECRET` in Step 2.
 
 **Auto-configured variables** (from render.yaml - do not modify):
 - `APP_ENV` = `production`
@@ -282,12 +284,12 @@ Verify these work:
 
 ### Issue: "Secret file not found: .streamlit/secrets.toml"
 
-**Cause:** Secret file not created in Render Dashboard.
+**Cause:** Render's Secret Files feature doesn't support forward slashes in filenames.
 
 **Fix:**
-1. Go to Environment → Secret Files
-2. Add file with exact path: `.streamlit/secrets.toml`
-3. Verify content includes `[auth]` section
+1. Use environment variables instead (see RENDER_SECRETS_SETUP.md)
+2. Add all `STREAMLIT_AUTH_*` and `STREAMLIT_GENERAL_*` variables in Environment → Environment Variables
+3. Verify all required variables are set (see Step 2)
 4. Redeploy
 
 ### Issue: "No module named 'app'"
@@ -391,25 +393,19 @@ Before going live with real users:
 - **Health Check:** `https://aippro-badging-system.onrender.com/_stcore/health`
 - **OAuth Callback:** `https://aippro-badging-system.onrender.com/oauth2callback`
 
-### Required Secrets File
-```toml
-# .streamlit/secrets.toml (created in Render Dashboard)
-[auth]
-client_id = "YOUR_CLIENT_ID.apps.googleusercontent.com"
-client_secret = "YOUR_CLIENT_SECRET"
-redirect_uri = "https://your-app.onrender.com/oauth2callback"
-cookie_secret = "32_CHARACTER_RANDOM_STRING"
-server_metadata_url = "https://accounts.google.com/.well-known/openid-configuration"
+### Required Environment Variables (Set in Render Dashboard)
 
-[general]
-debug = false
-enable_mock_auth = false
-```
+**Streamlit Secrets (via environment variables):**
+- `STREAMLIT_AUTH_CLIENT_ID` - OAuth Client ID
+- `STREAMLIT_AUTH_CLIENT_SECRET` - OAuth Client Secret
+- `STREAMLIT_AUTH_REDIRECT_URI` - `https://your-app.onrender.com/oauth2callback`
+- `STREAMLIT_AUTH_COOKIE_SECRET` - 32-character random string
+- `STREAMLIT_AUTH_SERVER_METADATA_URL` - `https://accounts.google.com/.well-known/openid-configuration`
+- `STREAMLIT_GENERAL_DEBUG` - `false`
+- `STREAMLIT_GENERAL_ENABLE_MOCK_AUTH` - `false`
 
-### Environment Variables (Set in Render Dashboard)
+**Application Configuration:**
 - `ADMIN_EMAILS` - Comma-separated admin emails
-- `GOOGLE_CLIENT_ID` - OAuth Client ID
-- `GOOGLE_CLIENT_SECRET` - OAuth Client Secret
 
 ### Database Connection
 Auto-configured via `render.yaml`:

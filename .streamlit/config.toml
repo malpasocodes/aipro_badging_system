@@ -1,0 +1,22 @@
+# Streamlit Configuration for Production Deployment
+# This file configures Streamlit's behavior and is safe to commit
+
+[server]
+# Server configuration
+headless = true
+port = 8501
+enableCORS = false
+enableXsrfProtection = true
+
+[browser]
+# Browser configuration
+gatherUsageStats = false
+serverAddress = "0.0.0.0"
+
+[theme]
+# App theme
+primaryColor = "#1f77b4"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f0f2f6"
+textColor = "#262730"
+font = "sans serif"
