@@ -568,9 +568,177 @@ Phase 5 UI/UX Enhancement:
 
 **Commit Hash:** 839bd0e
 
+## Post-Phase 5 Render Deployment Troubleshooting (v0.5.4 - UNSUCCESSFUL)
+
+**Date:** 2025-10-03
+**Context:** Attempting to deploy to Render.com for production
+**Status:** ❌ UNSUCCESSFUL - All attempts failed with same error
+
+### Problem Statement
+
+Deployment to Render fails with persistent `ModuleNotFoundError: No module named 'app'` when Streamlit tries to import:
+```python
+from app.core.config import get_settings  # Line 5 in app/main.py
+```
+
+**Error Location:** `/opt/render/project/src/app/main.py`
+**Error Type:** Module import path resolution issue
+**Build Success:** ✅ Dependencies install successfully
+**Migration Success:** ✅ Alembic migrations run successfully
+**Streamlit Start:** ✅ Streamlit starts and detects port 10000
+**Runtime Failure:** ❌ App crashes on first request with import error
+
+### Attempted Fixes (6 approaches, all unsuccessful)
+
+#### Attempt 1: Fix PostgreSQL Driver (psycopg2 → psycopg3)
+**Commit:** 6e95a90
+**Issue:** Alembic failed with `ModuleNotFoundError: No module named 'psycopg2'`
+**Approach:**
+- Modified `alembic/env.py` to convert `postgresql://` → `postgresql+psycopg://`
+- Modified `app/core/database.py` with same URL conversion
+- Reasoning: Render provides `postgresql://` URLs, but we use `psycopg[binary]` (psycopg3), not psycopg2
+
+**Result:** ✅ Alembic migrations now run successfully, but app import error persists
+
+#### Attempt 2: Switch from uv to requirements.txt
+**Commit:** a75abcf
+**Previous buildCommand:** `pip install uv && uv sync --frozen`
+**New buildCommand:** `pip install -r requirements.txt`
+**Previous startCommand:** `uv run alembic upgrade head && uv run streamlit run app/main.py...`
+**New startCommand:** `alembic upgrade head && streamlit run app/main.py...`
+**Reasoning:**
+- Render has native support for `requirements.txt`
+- uv might not work well with Render's deployment system
+- Standard pip approach is more reliable
+
+**Result:** ❌ Same import error persists
+
+#### Attempt 3: Add PYTHONPATH Environment Variable
+**Commit:** 4fea0c3
+**Approach:** Added to `render.yaml` envVars:
+```yaml
+- key: PYTHONPATH
+  value: /opt/render/project/src
+```
+**Reasoning:**
+- Adding project root to Python's module search path should make `app` module discoverable
+- `/opt/render/project/src` is where Render places code
+
+**Result:** ❌ Environment variable didn't propagate to Streamlit process
+
+#### Attempt 4: Export PYTHONPATH in startCommand
+**Commit:** 5961080
+**New startCommand:**
+```bash
+export PYTHONPATH=/opt/render/project/src:$PYTHONPATH && alembic upgrade head && streamlit run app/main.py...
+```
+**Reasoning:**
+- Setting PYTHONPATH directly in shell ensures it's available to all commands
+- More reliable than environment variable in render.yaml
+
+**Result:** ❌ Same import error persists
+
+#### Attempt 5: Install Package in Editable Mode
+**Commit:** 18c7679
+**New buildCommand:** `pip install uv && uv sync --frozen && uv pip install -e .`
+**Reasoning:**
+- Installing the package makes it importable system-wide
+- `pyproject.toml` already declares `packages = ["app"]`
+- Standard Python package deployment approach
+
+**Result:** ❌ Same import error persists
+
+#### Attempt 6: Create Root-Level Entry Point
+**Commit:** b6e4429
+**Approach:**
+- Created `streamlit_app.py` at project root:
+  ```python
+  from app.main import main
+  if __name__ == "__main__":
+      main()
+  ```
+- Updated startCommand to use `streamlit run streamlit_app.py`
+- Removed PYTHONPATH environment variable
+
+**Reasoning:**
+- When Streamlit runs a file, the directory containing that file is added to Python's path
+- By placing entry point at project root (where `app/` folder is), imports should work
+- This is the standard Streamlit deployment pattern for apps with package structures
+
+**Result:** ❌ **Render still running app/main.py instead of streamlit_app.py**
+- Error traceback shows: `File "/opt/render/project/src/app/main.py", line 5`
+- Suggests Render hasn't picked up the new startCommand from render.yaml
+- Possible caching issue or Blueprint not syncing
+
+### Technical Analysis
+
+**Why all approaches failed:**
+1. **PYTHONPATH approaches (3, 4):** Environment variable not reaching Streamlit subprocess
+2. **Editable install (5):** Package installation succeeded but imports still fail
+3. **Root entry point (6):** Render appears to be using cached startCommand, still running `app/main.py`
+
+**Evidence from logs:**
+- All error tracebacks show same file path: `/opt/render/project/src/app/main.py`
+- No error showing `streamlit_app.py` (suggests Attempt 6 never executed)
+- Health checks return 502 errors initially, then 200 after Streamlit starts
+- App crashes only when user makes HTTP request (Streamlit tries to execute code)
+
+### Possible Root Causes
+
+1. **Render Blueprint Caching:** Changes to `render.yaml` not being picked up
+2. **Build Cache:** Previous builds cached with old startCommand
+3. **Manual Override:** startCommand manually set in Render Dashboard, overriding render.yaml
+4. **Python Path Issue:** Render's Python environment doesn't include project root by default
+5. **Virtual Environment:** `.venv` location doesn't match expectations
+
+### Files Modified During Troubleshooting
+
+1. `alembic/env.py` - PostgreSQL driver conversion
+2. `app/core/database.py` - PostgreSQL driver conversion
+3. `render.yaml` - Build/start commands (modified 4 times)
+4. `streamlit_app.py` - New root-level entry point (created)
+
+### Commits (Deployment Troubleshooting)
+
+1. `6e95a90` - fix: Convert PostgreSQL URLs to use psycopg3 driver
+2. `a75abcf` - fix: Update Render build/start commands to use uv
+3. `4fea0c3` - fix: Switch to requirements.txt and add PYTHONPATH
+4. `5961080` - fix: Export PYTHONPATH in startCommand
+5. `18c7679` - fix: Install app package in editable mode
+6. `b6e4429` - fix: Create root-level streamlit_app.py entry point
+
+### Recommendations for User Investigation
+
+1. **Check Render Dashboard:**
+   - Verify startCommand in Render Dashboard → Settings → Build & Deploy
+   - Check if it's manually overridden (not using render.yaml)
+   - Confirm Blueprint deployment is enabled
+
+2. **Clear Render Cache:**
+   - Try manual deploy with "Clear build cache" option
+   - Force Render to rebuild from scratch
+
+3. **Verify File Structure on Render:**
+   - Use Render Shell to check if `streamlit_app.py` exists at root
+   - Verify working directory is `/opt/render/project/src`
+   - Check `sys.path` from Python shell
+
+4. **Alternative Approaches:**
+   - Use Streamlit Cloud instead of Render (native support for package structures)
+   - Restructure app to avoid package imports (flatten structure)
+   - Use Docker deployment with explicit PYTHONPATH in Dockerfile
+
+### Status
+**Current State:** Deployment blocked on import error
+**Blocker:** Unable to resolve Python module path issue on Render
+**Next Steps:** User to investigate Render configuration and caching
+
+---
+
 ## Sign-off
 
 **Phase 5 Status:** ✅ ACCEPTED (including v0.5.1 performance + v0.5.2 security + v0.5.3 UX enhancement)
-**Ready for:** Production deployment
+**Deployment Status:** ❌ BLOCKED - Render deployment unsuccessful (v0.5.4 troubleshooting documented)
+**Ready for:** Local development and testing
 **Approved by:** Alfred Essa
 **Date:** 2025-10-03
