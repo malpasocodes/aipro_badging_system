@@ -174,7 +174,7 @@ Otherwise:
 1. Render pulls code from GitHub
 2. Installs dependencies from `requirements.txt`
 3. Runs database migrations: `alembic upgrade head`
-4. Starts Streamlit app: `streamlit run app/main.py --server.port $PORT --server.address 0.0.0.0 --server.headless true`
+4. Starts Streamlit app: `streamlit run streamlit_app.py --server.port $PORT --server.address 0.0.0.0 --server.headless true`
 
 **Monitor deployment:**
 - Watch **Logs** tab for progress
