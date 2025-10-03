@@ -10,8 +10,8 @@ services:
     plan: free  # Change to 'starter' or higher for production
     region: oregon  # Change to your preferred region
     branch: main
-    buildCommand: pip install -r requirements.txt
-    startCommand: alembic upgrade head && streamlit run app/main.py --server.port $PORT --server.address 0.0.0.0 --server.headless true
+    buildCommand: pip install uv && uv sync --frozen
+    startCommand: uv run alembic upgrade head && uv run streamlit run app/main.py --server.port $PORT --server.address 0.0.0.0 --server.headless true
     healthCheckPath: /_stcore/health
     autoDeploy: true
 
