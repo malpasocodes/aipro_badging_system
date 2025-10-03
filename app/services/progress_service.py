@@ -1,10 +1,10 @@
 """Progress service for badge earning and automatic progression."""
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import UUID
 
-from sqlmodel import Session, select, func
+from sqlmodel import Session, func, select
 
 from app.core.database import get_engine
 from app.core.logging import get_logger
@@ -13,7 +13,6 @@ from app.models.capstone import Capstone
 from app.models.mini_badge import MiniBadge
 from app.models.program import Program
 from app.models.skill import Skill
-from app.models.user import User, UserRole
 from app.services.audit_service import get_audit_service
 
 logger = get_logger(__name__)
@@ -47,7 +46,7 @@ class ProgressService:
         mini_badge_id: UUID,
         request_id: UUID,
         awarded_by: UUID
-    ) -> List[Award]:
+    ) -> list[Award]:
         """
         Award a mini-badge to a student and trigger progression checks.
 
@@ -152,8 +151,8 @@ class ProgressService:
         self,
         user_id: UUID,
         skill_id: UUID,
-        awarded_by: Optional[UUID] = None,
-        reason: Optional[str] = None
+        awarded_by: UUID | None = None,
+        reason: str | None = None
     ) -> Award:
         """
         Award a skill badge (manual or automatic).
@@ -182,8 +181,8 @@ class ProgressService:
         self,
         user_id: UUID,
         program_id: UUID,
-        awarded_by: Optional[UUID] = None,
-        reason: Optional[str] = None
+        awarded_by: UUID | None = None,
+        reason: str | None = None
     ) -> Award:
         """
         Award a program badge (manual or automatic).
@@ -213,8 +212,8 @@ class ProgressService:
         session: Session,
         user_id: UUID,
         skill_id: UUID,
-        awarded_by: Optional[UUID] = None,
-        reason: Optional[str] = None
+        awarded_by: UUID | None = None,
+        reason: str | None = None
     ) -> Award:
         """Internal method to award skill within existing session."""
         try:
@@ -263,8 +262,8 @@ class ProgressService:
         session: Session,
         user_id: UUID,
         program_id: UUID,
-        awarded_by: Optional[UUID] = None,
-        reason: Optional[str] = None
+        awarded_by: UUID | None = None,
+        reason: str | None = None
     ) -> Award:
         """Internal method to award program within existing session."""
         try:
@@ -426,8 +425,8 @@ class ProgressService:
     def get_user_awards(
         self,
         user_id: UUID,
-        award_type: Optional[AwardType] = None
-    ) -> List[Award]:
+        award_type: AwardType | None = None
+    ) -> list[Award]:
         """
         Get all awards for a user, optionally filtered by type.
 
@@ -454,7 +453,7 @@ class ProgressService:
             results = session.exec(statement).all()
             return list(results)
 
-    def get_skill_progress(self, user_id: UUID, skill_id: UUID) -> Dict[str, Any]:
+    def get_skill_progress(self, user_id: UUID, skill_id: UUID) -> dict[str, Any]:
         """
         Get progress toward a skill (earned mini-badges, total, percentage).
 
@@ -505,7 +504,7 @@ class ProgressService:
 
             earned_count = len(earned_ids)
             total_count = len(all_mini_badges)
-            percentage = int((earned_count / total_count * 100)) if total_count > 0 else 0
+            percentage = int(earned_count / total_count * 100) if total_count > 0 else 0
 
             return {
                 "skill_id": str(skill_id),
@@ -517,7 +516,7 @@ class ProgressService:
                 "mini_badges": mini_badges_data,
             }
 
-    def get_program_progress(self, user_id: UUID, program_id: UUID) -> Dict[str, Any]:
+    def get_program_progress(self, user_id: UUID, program_id: UUID) -> dict[str, Any]:
         """
         Get progress toward a program (earned skills, total, percentage).
 
@@ -574,7 +573,7 @@ class ProgressService:
 
             earned_skills = len(earned_skill_ids)
             total_skills = len(all_skills)
-            percentage = int((earned_skills / total_skills * 100)) if total_skills > 0 else 0
+            percentage = int(earned_skills / total_skills * 100) if total_skills > 0 else 0
 
             return {
                 "program_id": str(program_id),
@@ -587,7 +586,7 @@ class ProgressService:
                 "capstone_earned": capstone_earned,
             }
 
-    def get_all_progress(self, user_id: UUID) -> Dict[str, Any]:
+    def get_all_progress(self, user_id: UUID) -> dict[str, Any]:
         """
         Get complete progress summary for a user.
 

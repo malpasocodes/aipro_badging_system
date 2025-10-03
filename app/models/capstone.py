@@ -1,7 +1,6 @@
 """Capstone model for badge hierarchy."""
 
 from datetime import datetime
-from typing import Optional
 from uuid import UUID, uuid4
 
 from sqlmodel import Field, SQLModel
@@ -20,7 +19,7 @@ class Capstone(SQLModel, table=True):
 
     # Capstone details
     title: str = Field(max_length=200)
-    description: Optional[str] = Field(default=None)
+    description: str | None = Field(default=None)
 
     # Requirement status
     is_required: bool = Field(default=False)  # Required for program completion?

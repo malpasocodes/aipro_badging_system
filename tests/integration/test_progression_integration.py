@@ -1,24 +1,20 @@
 """Integration tests for badge progression workflows."""
 
-import pytest
 from uuid import uuid4
 
+import pytest
+
 from app.models import (
-    User,
-    UserRole,
-    Program,
-    Skill,
-    MiniBadge,
-    Capstone,
-    Request,
-    RequestStatus,
     Award,
     AwardType,
+    RequestStatus,
+    User,
+    UserRole,
 )
 from app.services import (
-    get_request_service,
-    get_progress_service,
     get_catalog_service,
+    get_progress_service,
+    get_request_service,
 )
 
 
@@ -776,6 +772,7 @@ def test_audit_logs_for_automatic_awards(
 ):
     """Test that automatic awards create audit logs."""
     from sqlmodel import Session, select
+
     from app.models import AuditLog
 
     # Create simple catalog

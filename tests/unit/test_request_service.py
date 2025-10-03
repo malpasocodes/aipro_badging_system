@@ -1,17 +1,16 @@
 """Unit tests for RequestService."""
 
-import pytest
-from datetime import datetime
 from uuid import uuid4
 
-from app.models.request import Request, RequestStatus
+import pytest
+
+from app.models.request import RequestStatus
 from app.models.user import UserRole
 from app.services.request_service import (
-    RequestService,
-    get_request_service,
+    AuthorizationError,
     RequestError,
     ValidationError,
-    AuthorizationError,
+    get_request_service,
 )
 
 

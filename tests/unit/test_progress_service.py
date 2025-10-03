@@ -1,27 +1,25 @@
 """Unit tests for ProgressService."""
 
-import pytest
-from datetime import datetime
 from uuid import uuid4
 
-from sqlmodel import Session, create_engine, SQLModel
+import pytest
+from sqlmodel import Session, SQLModel, create_engine
 
 from app.models import (
-    Award,
     AwardType,
-    Program,
-    Skill,
     MiniBadge,
-    User,
-    UserRole,
+    Program,
     Request,
     RequestStatus,
+    Skill,
+    User,
+    UserRole,
 )
 from app.services.progress_service import (
+    DuplicateAwardError,
+    ProgressError,
     ProgressService,
     get_progress_service,
-    ProgressError,
-    DuplicateAwardError,
 )
 
 

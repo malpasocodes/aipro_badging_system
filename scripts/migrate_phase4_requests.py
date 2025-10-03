@@ -9,7 +9,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from sqlmodel import Session, create_engine, select
 
 from app.core.config import get_settings
-from app.models import Request, MiniBadge, Skill, Program
+from app.models import MiniBadge, Program, Request, Skill
 from app.services import get_catalog_service
 
 
@@ -113,7 +113,7 @@ def migrate_requests() -> None:
                         id=uuid4(),
                         skill_id=legacy_skill.id,
                         title=request.badge_name,
-                        description=f"Legacy badge migrated from Phase 4",
+                        description="Legacy badge migrated from Phase 4",
                         is_active=True,
                         position=created,
                     )

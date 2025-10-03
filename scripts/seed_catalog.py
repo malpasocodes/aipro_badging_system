@@ -7,10 +7,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from uuid import uuid4
+
 from sqlmodel import Session, create_engine
 
 from app.core.config import get_settings
-from app.models import Program, Skill, MiniBadge, Capstone
+from app.models import Capstone, MiniBadge, Program, Skill
 
 
 def seed_catalog() -> None:
@@ -261,7 +262,7 @@ def seed_catalog() -> None:
         mini_badge_count = session.query(MiniBadge).count()
         capstone_count = session.query(Capstone).count()
 
-        print(f"✅ Catalog seeded successfully!")
+        print("✅ Catalog seeded successfully!")
         print(f"  - Programs: {program_count}")
         print(f"  - Skills: {skill_count}")
         print(f"  - Mini-badges: {mini_badge_count}")

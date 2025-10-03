@@ -1,8 +1,7 @@
 """Reusable badge display components for progress tracking."""
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional
-from uuid import UUID
+from typing import Any
 
 import streamlit as st
 
@@ -13,9 +12,9 @@ def render_badge_card(
     title: str,
     badge_type: str,
     earned: bool = False,
-    earned_date: Optional[datetime] = None,
-    progress_percent: Optional[int] = None,
-    description: Optional[str] = None,
+    earned_date: datetime | None = None,
+    progress_percent: int | None = None,
+    description: str | None = None,
 ) -> None:
     """
     Render a single badge card with status and progress.
@@ -77,7 +76,7 @@ def render_badge_card(
 
 
 def render_mini_badge_list(
-    mini_badges: List[Dict[str, Any]],
+    mini_badges: list[dict[str, Any]],
     show_progress: bool = True
 ) -> None:
     """
@@ -124,7 +123,7 @@ def render_skill_card(
     earned: bool,
     progress_percent: int,
     mini_badge_count: int,
-    earned_date: Optional[datetime] = None,
+    earned_date: datetime | None = None,
 ) -> None:
     """
     Render a skill card with mini-badge progress.
@@ -162,12 +161,12 @@ def render_skill_card(
 
 def render_program_card(
     program_title: str,
-    description: Optional[str],
+    description: str | None,
     earned: bool,
     progress_percent: int,
     skill_count: int,
     earned_skills: int,
-    earned_date: Optional[datetime] = None,
+    earned_date: datetime | None = None,
 ) -> None:
     """
     Render a program card with skill progress.

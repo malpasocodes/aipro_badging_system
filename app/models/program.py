@@ -1,7 +1,6 @@
 """Program model for badge hierarchy."""
 
 from datetime import datetime
-from typing import Optional
 from uuid import UUID, uuid4
 
 from sqlmodel import Field, SQLModel
@@ -17,7 +16,7 @@ class Program(SQLModel, table=True):
 
     # Program details
     title: str = Field(max_length=200, index=True)
-    description: Optional[str] = Field(default=None)
+    description: str | None = Field(default=None)
 
     # Status and ordering
     is_active: bool = Field(default=True, index=True)

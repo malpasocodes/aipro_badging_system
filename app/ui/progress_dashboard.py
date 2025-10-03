@@ -1,6 +1,5 @@
 """Student progress dashboard UI components."""
 
-from typing import Optional
 from uuid import UUID
 
 import streamlit as st
@@ -141,11 +140,7 @@ def render_my_progress(user: User) -> None:
         progress_percent = prog_data.get("progress_percent", 0)
 
         # Apply filter
-        if filter_option == "In Progress" and (program_earned or progress_percent == 0):
-            continue
-        elif filter_option == "Completed" and not program_earned:
-            continue
-        elif filter_option == "Not Started" and progress_percent > 0:
+        if filter_option == "In Progress" and (program_earned or progress_percent == 0) or filter_option == "Completed" and not program_earned or filter_option == "Not Started" and progress_percent > 0:
             continue
 
         # Render program card

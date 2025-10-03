@@ -1,7 +1,6 @@
 """Audit logging service for tracking privileged operations."""
 
-from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import UUID
 
 from sqlmodel import Session, select
@@ -22,11 +21,11 @@ class AuditService:
 
     def log_action(
         self,
-        actor_user_id: Optional[UUID],
+        actor_user_id: UUID | None,
         action: str,
         entity: str,
         entity_id: UUID,
-        context_data: Optional[Dict[str, Any]] = None,
+        context_data: dict[str, Any] | None = None,
     ) -> AuditLog:
         """
         Log a privileged action to the audit trail.
@@ -79,12 +78,12 @@ class AuditService:
 
     def get_audit_logs(
         self,
-        entity: Optional[str] = None,
-        entity_id: Optional[UUID] = None,
-        actor_user_id: Optional[UUID] = None,
+        entity: str | None = None,
+        entity_id: UUID | None = None,
+        actor_user_id: UUID | None = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> List[AuditLog]:
+    ) -> list[AuditLog]:
         """
         Query audit logs with optional filters.
 
@@ -142,7 +141,7 @@ class AuditService:
 
             return list(results)
 
-    def get_audit_log_by_id(self, audit_log_id: UUID) -> Optional[AuditLog]:
+    def get_audit_log_by_id(self, audit_log_id: UUID) -> AuditLog | None:
         """
         Get a specific audit log entry by ID.
 
@@ -160,9 +159,9 @@ class AuditService:
 
     def count_audit_logs(
         self,
-        entity: Optional[str] = None,
-        entity_id: Optional[UUID] = None,
-        actor_user_id: Optional[UUID] = None,
+        entity: str | None = None,
+        entity_id: UUID | None = None,
+        actor_user_id: UUID | None = None,
     ) -> int:
         """
         Count audit logs matching filters.

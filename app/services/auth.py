@@ -1,7 +1,7 @@
 """Authentication service for Google ID token verification and user management."""
 
 from datetime import datetime
-from typing import Optional, Dict, Any
+from typing import Any
 
 from google.auth.transport import requests
 from google.oauth2 import id_token
@@ -22,11 +22,11 @@ class AuthenticationError(Exception):
 
 class AuthService:
     """Authentication service for Google ID token verification."""
-    
+
     def __init__(self):
         self.settings = get_settings()
-        
-    def verify_google_id_token(self, id_token_str: str) -> Dict[str, Any]:
+
+    def verify_google_id_token(self, id_token_str: str) -> dict[str, Any]:
         """
         Verify Google ID token and return user claims.
         
@@ -43,29 +43,29 @@ class AuthService:
             # Verify the token
             request = requests.Request()
             id_info = id_token.verify_oauth2_token(
-                id_token_str, 
-                request, 
+                id_token_str,
+                request,
                 self.settings.google_client_id
             )
-            
+
             # Verify issuer
             if id_info['iss'] not in ['accounts.google.com', 'https://accounts.google.com']:
                 raise AuthenticationError("Invalid token issuer")
-            
+
             # Verify email is verified
             if not id_info.get('email_verified', False):
                 raise AuthenticationError("Email not verified")
-            
+
             logger.info("ID token verified successfully", email=id_info.get('email'))
             return id_info
-            
+
         except ValueError as e:
             logger.error("ID token verification failed", error=str(e))
             raise AuthenticationError("Invalid ID token") from e
         except Exception as e:
             logger.error("Unexpected error during token verification", error=str(e))
             raise AuthenticationError("Token verification failed") from e
-    
+
     def get_or_create_user(self, google_sub: str, email: str) -> User:
         """
         Get existing user or create new user from Google OAuth data.
@@ -159,7 +159,7 @@ class AuthService:
 
             logger.info("New user created", user_id=str(user.id), email=email, role=role.value)
             return user
-    
+
     def _determine_user_role(self, email: str) -> UserRole:
         """
         Determine user role based on email and admin list.
@@ -171,15 +171,15 @@ class AuthService:
             UserRole enum value
         """
         admin_emails = self.settings.admin_emails
-        
+
         if admin_emails:
             admin_list = [email.strip().lower() for email in admin_emails.split(',')]
             if email.lower() in admin_list:
                 return UserRole.ADMIN
-        
+
         # Default to student role
         return UserRole.STUDENT
-    
+
     def authenticate_user(self, id_token_str: str) -> User:
         """
         Authenticate user with Google ID token.
@@ -195,20 +195,20 @@ class AuthService:
         """
         # Verify the ID token
         claims = self.verify_google_id_token(id_token_str)
-        
+
         # Extract user information
         google_sub = claims['sub']
         email = claims['email']
-        
+
         # Get or create user
         user = self.get_or_create_user(google_sub, email)
-        
+
         if not user.is_active:
             raise AuthenticationError("User account is inactive")
-        
+
         return user
-    
-    def get_user_by_id(self, user_id: str) -> Optional[User]:
+
+    def get_user_by_id(self, user_id: str) -> User | None:
         """
         Get user by ID.
         
@@ -219,7 +219,7 @@ class AuthService:
             User object or None if not found
         """
         engine = get_engine()
-        
+
         with Session(engine) as session:
             statement = select(User).where(User.id == user_id)
             return session.exec(statement).first()
@@ -228,8 +228,8 @@ class AuthService:
 # Mock verifier for testing
 class MockAuthService(AuthService):
     """Mock authentication service for testing."""
-    
-    def __init__(self, mock_claims: Optional[Dict[str, Any]] = None):
+
+    def __init__(self, mock_claims: dict[str, Any] | None = None):
         super().__init__()
         self.mock_claims = mock_claims or {
             'sub': 'mock_google_sub_123',
@@ -237,10 +237,10 @@ class MockAuthService(AuthService):
             'email_verified': True,
             'iss': 'accounts.google.com'
         }
-    
-    def verify_google_id_token(self, id_token_str: str) -> Dict[str, Any]:
+
+    def verify_google_id_token(self, id_token_str: str) -> dict[str, Any]:
         """Mock ID token verification."""
         if id_token_str == "invalid_token":
             raise AuthenticationError("Invalid ID token")
-        
+
         return self.mock_claims

@@ -2,7 +2,6 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import Optional
 from uuid import UUID, uuid4
 
 from sqlmodel import Field, SQLModel
@@ -27,7 +26,7 @@ class Request(SQLModel, table=True):
     user_id: UUID = Field(foreign_key="users.id", index=True)
 
     # Badge being requested (placeholder for Phase 4, will be FK to mini_badges in Phase 5)
-    mini_badge_id: Optional[UUID] = Field(default=None)
+    mini_badge_id: UUID | None = Field(default=None)
     badge_name: str = Field(max_length=200)  # Temporary field for Phase 4
 
     # Request status
@@ -37,9 +36,9 @@ class Request(SQLModel, table=True):
     submitted_at: datetime = Field(default_factory=datetime.utcnow, index=True)
 
     # Decision tracking
-    decided_at: Optional[datetime] = Field(default=None)
-    decided_by: Optional[UUID] = Field(default=None, foreign_key="users.id")
-    decision_reason: Optional[str] = Field(default=None)
+    decided_at: datetime | None = Field(default=None)
+    decided_by: UUID | None = Field(default=None, foreign_key="users.id")
+    decision_reason: str | None = Field(default=None)
 
     # Timestamps
     created_at: datetime = Field(default_factory=datetime.utcnow)

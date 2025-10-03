@@ -9,7 +9,6 @@ from sqlmodel import Session, select
 from app.core.database import get_engine
 from app.models.user import User, UserRole
 from app.services.onboarding import (
-    OnboardingService,
     OnboardingError,
     ValidationError,
     get_onboarding_service,

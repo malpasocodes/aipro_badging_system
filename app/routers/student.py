@@ -3,8 +3,6 @@
 import streamlit as st
 
 from app.models.user import User
-from app.services.progress_service import get_progress_service
-from app.services.request_service import get_request_service
 from app.ui.catalog_browser import render_catalog_browser
 from app.ui.progress_dashboard import render_my_badges, render_my_progress
 from app.ui.request_form import render_request_form, render_user_requests

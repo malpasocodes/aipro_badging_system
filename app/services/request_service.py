@@ -1,7 +1,6 @@
 """Request service for badge approval workflow."""
 
 from datetime import datetime
-from typing import List, Optional
 from uuid import UUID
 
 from sqlmodel import Session, select
@@ -9,7 +8,7 @@ from sqlmodel import Session, select
 from app.core.database import get_engine
 from app.core.logging import get_logger
 from app.models.request import Request, RequestStatus
-from app.models.user import User, UserRole
+from app.models.user import UserRole
 from app.services.audit_service import get_audit_service
 
 logger = get_logger(__name__)
@@ -40,8 +39,8 @@ class RequestService:
     def submit_request(
         self,
         user_id: UUID,
-        badge_name: Optional[str] = None,
-        mini_badge_id: Optional[UUID] = None
+        badge_name: str | None = None,
+        mini_badge_id: UUID | None = None
     ) -> Request:
         """
         Submit a new badge request.
@@ -146,10 +145,10 @@ class RequestService:
     def get_user_requests(
         self,
         user_id: UUID,
-        status_filter: Optional[RequestStatus] = None,
+        status_filter: RequestStatus | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> List[Request]:
+    ) -> list[Request]:
         """
         Get all requests submitted by a specific user.
 
@@ -183,7 +182,7 @@ class RequestService:
         self,
         limit: int = 25,
         offset: int = 0,
-    ) -> List[Request]:
+    ) -> list[Request]:
         """
         Get all pending requests (approval queue).
 
@@ -210,10 +209,10 @@ class RequestService:
 
     def get_all_requests(
         self,
-        status_filter: Optional[RequestStatus] = None,
+        status_filter: RequestStatus | None = None,
         limit: int = 25,
         offset: int = 0,
-    ) -> List[Request]:
+    ) -> list[Request]:
         """
         Get all requests with optional status filter (admin view).
 
@@ -242,7 +241,7 @@ class RequestService:
             results = session.exec(statement).all()
             return list(results)
 
-    def get_request_by_id(self, request_id: UUID) -> Optional[Request]:
+    def get_request_by_id(self, request_id: UUID) -> Request | None:
         """
         Get a specific request by ID.
 
@@ -263,7 +262,7 @@ class RequestService:
         request_id: UUID,
         approver_id: UUID,
         approver_role: UserRole,
-        reason: Optional[str] = None,
+        reason: str | None = None,
     ) -> Request:
         """
         Approve a pending badge request.
@@ -340,7 +339,10 @@ class RequestService:
 
             # Phase 6: Award mini-badge and trigger progression checks
             if request.mini_badge_id:
-                from app.services.progress_service import get_progress_service, ProgressError
+                from app.services.progress_service import (
+                    ProgressError,
+                    get_progress_service,
+                )
 
                 progress_service = get_progress_service(engine=self.engine)
                 try:

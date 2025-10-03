@@ -1,7 +1,7 @@
 """Audit log model for tracking privileged operations."""
 
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any
 from uuid import UUID, uuid4
 
 from sqlalchemy import JSON, Column
@@ -17,7 +17,7 @@ class AuditLog(SQLModel, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
 
     # Actor (user who performed the action)
-    actor_user_id: Optional[UUID] = Field(
+    actor_user_id: UUID | None = Field(
         default=None,
         foreign_key="users.id",
         index=True
@@ -30,7 +30,7 @@ class AuditLog(SQLModel, table=True):
 
     # Flexible context data storage (old values, reasons, additional info, etc.)
     # Note: Field named "context_data" instead of "metadata" to avoid SQLAlchemy reserved name
-    context_data: Optional[Dict[str, Any]] = Field(
+    context_data: dict[str, Any] | None = Field(
         default=None,
         sa_column=Column(JSON)
     )

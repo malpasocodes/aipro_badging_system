@@ -3,8 +3,11 @@
 import streamlit as st
 
 from app.models.user import User
-from app.models.request import RequestStatus
-from app.services.request_service import get_request_service, RequestError, ValidationError
+from app.services.request_service import (
+    RequestError,
+    ValidationError,
+    get_request_service,
+)
 from app.ui.badge_picker import render_badge_picker
 
 

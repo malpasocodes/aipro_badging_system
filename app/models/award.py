@@ -2,7 +2,6 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import Optional
 from uuid import UUID, uuid4
 
 from sqlmodel import Field, SQLModel, UniqueConstraint
@@ -37,35 +36,35 @@ class Award(SQLModel, table=True):
     award_type: AwardType = Field(index=True)
 
     # Polymorphic foreign keys (only one should be set based on award_type)
-    mini_badge_id: Optional[UUID] = Field(
+    mini_badge_id: UUID | None = Field(
         default=None,
         foreign_key="mini_badges.id",
         index=True
     )
-    skill_id: Optional[UUID] = Field(
+    skill_id: UUID | None = Field(
         default=None,
         foreign_key="skills.id",
         index=True
     )
-    program_id: Optional[UUID] = Field(
+    program_id: UUID | None = Field(
         default=None,
         foreign_key="programs.id",
         index=True
     )
 
     # Original request that triggered this award (for mini_badges only)
-    request_id: Optional[UUID] = Field(
+    request_id: UUID | None = Field(
         default=None,
         foreign_key="requests.id"
     )
 
     # Award metadata
     awarded_at: datetime = Field(default_factory=datetime.utcnow, index=True)
-    awarded_by: Optional[UUID] = Field(
+    awarded_by: UUID | None = Field(
         default=None,
         foreign_key="users.id"
     )  # None for automatic awards
-    notes: Optional[str] = Field(default=None)  # Optional context
+    notes: str | None = Field(default=None)  # Optional context
 
     # Timestamps
     created_at: datetime = Field(default_factory=datetime.utcnow)

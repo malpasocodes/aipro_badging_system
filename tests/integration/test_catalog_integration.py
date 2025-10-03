@@ -1,9 +1,10 @@
 """Integration tests for catalog workflows."""
 
-import pytest
 from uuid import uuid4
 
-from app.models import User, UserRole, Program, Skill, MiniBadge, Capstone
+import pytest
+
+from app.models import User, UserRole
 from app.services import get_catalog_service, get_request_service
 
 
@@ -345,6 +346,7 @@ def test_capstone_required_flag(test_engine, admin_user):
 def test_audit_logs_created_for_catalog_operations(test_engine, admin_user):
     """Test that all catalog CRUD operations create audit logs."""
     from sqlmodel import Session, select
+
     from app.models import AuditLog
 
     catalog_service = get_catalog_service(engine=test_engine)

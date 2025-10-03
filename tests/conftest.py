@@ -1,11 +1,8 @@
 """Shared test fixtures and configuration."""
 
 import pytest
-from sqlmodel import Session, SQLModel, create_engine
 from sqlalchemy.pool import StaticPool
-
-from app.core.database import get_engine
-from app.models import User, Request, AuditLog
+from sqlmodel import Session, SQLModel, create_engine
 
 
 @pytest.fixture(scope="function")

@@ -1,14 +1,14 @@
 """Unit tests for CatalogService."""
 
-import pytest
 from uuid import uuid4
 
-from app.models import Program, Skill, MiniBadge, Capstone, UserRole
+import pytest
+
+from app.models import UserRole
 from app.services.catalog_service import (
-    CatalogService,
     AuthorizationError,
-    ValidationError,
     NotFoundError,
+    ValidationError,
     get_catalog_service,
 )
 

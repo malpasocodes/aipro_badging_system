@@ -1,14 +1,13 @@
 """Catalog service for managing badge hierarchy."""
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import UUID
 
 from sqlmodel import Session, select
 
 from app.core.database import get_engine
-from app.models import Program, Skill, MiniBadge, Capstone, UserRole
-from app.services.audit_service import get_audit_service
+from app.models import Capstone, MiniBadge, Program, Skill, UserRole
 
 
 class CatalogError(Exception):
@@ -45,7 +44,7 @@ class CatalogService:
     def create_program(
         self,
         title: str,
-        description: Optional[str],
+        description: str | None,
         actor_id: UUID,
         actor_role: UserRole,
     ) -> Program:
@@ -91,8 +90,8 @@ class CatalogService:
     def update_program(
         self,
         program_id: UUID,
-        title: Optional[str],
-        description: Optional[str],
+        title: str | None,
+        description: str | None,
         actor_id: UUID,
         actor_role: UserRole,
     ) -> Program:
@@ -142,12 +141,12 @@ class CatalogService:
 
             return program
 
-    def get_program(self, program_id: UUID) -> Optional[Program]:
+    def get_program(self, program_id: UUID) -> Program | None:
         """Get program by ID."""
         with Session(self.engine) as session:
             return session.get(Program, program_id)
 
-    def list_programs(self, include_inactive: bool = False) -> List[Program]:
+    def list_programs(self, include_inactive: bool = False) -> list[Program]:
         """List all programs, ordered by position."""
         with Session(self.engine) as session:
             query = select(Program).order_by(Program.position)
@@ -239,7 +238,7 @@ class CatalogService:
         self,
         program_id: UUID,
         title: str,
-        description: Optional[str],
+        description: str | None,
         actor_id: UUID,
         actor_role: UserRole,
     ) -> Skill:
@@ -296,8 +295,8 @@ class CatalogService:
     def update_skill(
         self,
         skill_id: UUID,
-        title: Optional[str],
-        description: Optional[str],
+        title: str | None,
+        description: str | None,
         actor_id: UUID,
         actor_role: UserRole,
     ) -> Skill:
@@ -345,16 +344,16 @@ class CatalogService:
 
             return skill
 
-    def get_skill(self, skill_id: UUID) -> Optional[Skill]:
+    def get_skill(self, skill_id: UUID) -> Skill | None:
         """Get skill by ID."""
         with Session(self.engine) as session:
             return session.get(Skill, skill_id)
 
     def list_skills(
         self,
-        program_id: Optional[UUID] = None,
+        program_id: UUID | None = None,
         include_inactive: bool = False,
-    ) -> List[Skill]:
+    ) -> list[Skill]:
         """List skills, optionally filtered by program."""
         with Session(self.engine) as session:
             query = select(Skill).order_by(Skill.program_id, Skill.position)
@@ -447,7 +446,7 @@ class CatalogService:
         self,
         skill_id: UUID,
         title: str,
-        description: Optional[str],
+        description: str | None,
         actor_id: UUID,
         actor_role: UserRole,
     ) -> MiniBadge:
@@ -504,8 +503,8 @@ class CatalogService:
     def update_mini_badge(
         self,
         mini_badge_id: UUID,
-        title: Optional[str],
-        description: Optional[str],
+        title: str | None,
+        description: str | None,
         actor_id: UUID,
         actor_role: UserRole,
     ) -> MiniBadge:
@@ -553,16 +552,16 @@ class CatalogService:
 
             return mini_badge
 
-    def get_mini_badge(self, mini_badge_id: UUID) -> Optional[MiniBadge]:
+    def get_mini_badge(self, mini_badge_id: UUID) -> MiniBadge | None:
         """Get mini-badge by ID."""
         with Session(self.engine) as session:
             return session.get(MiniBadge, mini_badge_id)
 
     def list_mini_badges(
         self,
-        skill_id: Optional[UUID] = None,
+        skill_id: UUID | None = None,
         include_inactive: bool = False,
-    ) -> List[MiniBadge]:
+    ) -> list[MiniBadge]:
         """List mini-badges, optionally filtered by skill."""
         with Session(self.engine) as session:
             query = select(MiniBadge).order_by(MiniBadge.skill_id, MiniBadge.position)
@@ -650,7 +649,7 @@ class CatalogService:
         self,
         program_id: UUID,
         title: str,
-        description: Optional[str],
+        description: str | None,
         is_required: bool,
         actor_id: UUID,
         actor_role: UserRole,
@@ -702,9 +701,9 @@ class CatalogService:
     def update_capstone(
         self,
         capstone_id: UUID,
-        title: Optional[str],
-        description: Optional[str],
-        is_required: Optional[bool],
+        title: str | None,
+        description: str | None,
+        is_required: bool | None,
         actor_id: UUID,
         actor_role: UserRole,
     ) -> Capstone:
@@ -757,16 +756,16 @@ class CatalogService:
 
             return capstone
 
-    def get_capstone(self, capstone_id: UUID) -> Optional[Capstone]:
+    def get_capstone(self, capstone_id: UUID) -> Capstone | None:
         """Get capstone by ID."""
         with Session(self.engine) as session:
             return session.get(Capstone, capstone_id)
 
     def list_capstones(
         self,
-        program_id: Optional[UUID] = None,
+        program_id: UUID | None = None,
         include_inactive: bool = False,
-    ) -> List[Capstone]:
+    ) -> list[Capstone]:
         """List capstones, optionally filtered by program."""
         with Session(self.engine) as session:
             query = select(Capstone).order_by(Capstone.program_id)
@@ -846,7 +845,7 @@ class CatalogService:
 
     # ==================== HIERARCHY QUERIES ====================
 
-    def get_full_catalog(self) -> Dict[str, Any]:
+    def get_full_catalog(self) -> dict[str, Any]:
         """Get complete catalog hierarchy (programs → skills → mini-badges)."""
         with Session(self.engine) as session:
             programs = session.exec(
@@ -909,7 +908,7 @@ class CatalogService:
 
             return {"programs": catalog}
 
-    def get_program_hierarchy(self, program_id: UUID) -> Dict[str, Any]:
+    def get_program_hierarchy(self, program_id: UUID) -> dict[str, Any]:
         """Get single program with all children (skills, mini-badges, capstones)."""
         with Session(self.engine) as session:
             program = session.get(Program, program_id)

@@ -2,7 +2,6 @@
 
 import re
 from datetime import datetime
-from typing import Optional
 from uuid import UUID
 
 from sqlmodel import Session, select
@@ -201,9 +200,9 @@ class OnboardingService:
     def update_onboarding_info(
         self,
         user_id: UUID,
-        username: Optional[str] = None,
-        substack_email: Optional[str] = None,
-        meetup_email: Optional[str] = None,
+        username: str | None = None,
+        substack_email: str | None = None,
+        meetup_email: str | None = None,
     ) -> User:
         """
         Update onboarding information for a user who has already completed onboarding.

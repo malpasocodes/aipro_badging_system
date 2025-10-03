@@ -1,13 +1,12 @@
 """Admin award management UI components."""
 
-from uuid import UUID
 
 import streamlit as st
 
 from app.models.award import AwardType
 from app.models.user import User, UserRole
 from app.services.catalog_service import get_catalog_service
-from app.services.progress_service import get_progress_service, ProgressError
+from app.services.progress_service import ProgressError, get_progress_service
 from app.ui.badge_display import render_award_badge
 
 
@@ -52,8 +51,9 @@ def render_award_statistics() -> None:
     # Get all awards (across all users)
     # Note: This is a simplified approach. For production, add a method to ProgressService
     # to get aggregate statistics without loading all awards.
+    from sqlmodel import Session, func, select
+
     from app.core.database import get_engine
-    from sqlmodel import Session, select, func
     from app.models.award import Award
 
     engine = get_engine()

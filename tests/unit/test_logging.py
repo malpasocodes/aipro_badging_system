@@ -2,8 +2,6 @@
 
 from unittest.mock import patch
 
-import structlog
-
 from app.core.logging import get_logger, setup_logging
 
 

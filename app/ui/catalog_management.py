@@ -1,12 +1,10 @@
 """Admin catalog management UI for badge hierarchy."""
 
-from typing import Optional
-from uuid import UUID
 
 import streamlit as st
 
-from app.models import User, UserRole, Program, Skill, MiniBadge, Capstone
-from app.services import get_catalog_service, CatalogAuthorizationError, NotFoundError, CatalogValidationError
+from app.models import Capstone, MiniBadge, Program, Skill, User
+from app.services import get_catalog_service
 
 
 def render_catalog_management(user: User) -> None:

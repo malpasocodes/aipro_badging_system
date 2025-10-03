@@ -4,9 +4,9 @@ import streamlit as st
 
 from app.models.user import User, UserRole
 from app.services.roster_service import (
-    get_roster_service,
-    RosterError,
     AuthorizationError,
+    RosterError,
+    get_roster_service,
 )
 
 

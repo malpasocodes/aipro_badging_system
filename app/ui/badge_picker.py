@@ -1,6 +1,5 @@
 """Badge picker component for request forms."""
 
-from typing import Optional
 from uuid import UUID
 
 import streamlit as st
@@ -8,7 +7,7 @@ import streamlit as st
 from app.services import get_catalog_service
 
 
-def render_badge_picker(key_prefix: str = "badge_picker") -> Optional[UUID]:
+def render_badge_picker(key_prefix: str = "badge_picker") -> UUID | None:
     """
     Render hierarchical badge picker with cascading Program → Skill → MiniBadge selection.
 
@@ -100,7 +99,7 @@ def render_badge_picker(key_prefix: str = "badge_picker") -> Optional[UUID]:
     return selected_badge.id
 
 
-def render_badge_picker_compact(key_prefix: str = "badge_picker_compact") -> Optional[dict]:
+def render_badge_picker_compact(key_prefix: str = "badge_picker_compact") -> dict | None:
     """
     Render compact badge picker that returns full badge context.
 
