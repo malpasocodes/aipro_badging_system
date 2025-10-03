@@ -15,6 +15,28 @@ from app.services.auth import AuthService
 logger = get_logger(__name__)
 
 
+def _is_streamlit_user_authenticated() -> bool:
+    """Best-effort check for Streamlit native auth status across versions."""
+    if not hasattr(st, "user"):
+        return False
+
+    user_proxy = st.user
+
+    # Prefer explicit boolean flags exposed by Streamlit
+    for attr in ("is_logged_in", "is_authenticated", "logged_in", "authenticated"):
+        value = getattr(user_proxy, attr, None)
+        if value is not None:
+            return bool(value)
+
+    # Fall back to presence of core identity fields
+    try:
+        user_dict = dict(user_proxy)
+    except Exception:
+        return False
+
+    return bool(user_dict.get("email") or user_dict.get("sub"))
+
+
 class OAuthSyncService:
     """Synchronize st.user OAuth data with application user database."""
 
@@ -93,7 +115,7 @@ class OAuthSyncService:
             User object if authenticated and synced, None otherwise
         """
         # Check if user is authenticated via Streamlit native auth
-        if not hasattr(st, 'user') or not st.user.is_logged_in:
+        if not _is_streamlit_user_authenticated():
             return None
 
         try:
@@ -114,10 +136,7 @@ class OAuthSyncService:
         Returns:
             True if user is authenticated, False otherwise
         """
-        if not hasattr(st, 'user'):
-            return False
-
-        return st.user.is_logged_in
+        return _is_streamlit_user_authenticated()
 
     def get_oauth_user_info(self) -> dict[str, Any] | None:
         """
