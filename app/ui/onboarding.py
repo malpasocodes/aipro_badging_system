@@ -3,7 +3,6 @@
 import streamlit as st
 
 from app.services.onboarding import (
-    OnboardingService,
     OnboardingError,
     ValidationError,
     get_onboarding_service,
@@ -107,8 +106,9 @@ def render_onboarding_form() -> None:
                 st.error("❌ You must agree to the terms to continue")
                 return
 
-            # Get current user from session state
-            current_user = st.session_state.get("current_user")
+            # Get current user from OAuth (no session caching)
+            from app.ui.oauth_auth import get_current_oauth_user
+            current_user = get_current_oauth_user()
             if not current_user:
                 st.error("❌ Session error: No authenticated user found")
                 return
@@ -123,8 +123,7 @@ def render_onboarding_form() -> None:
                     meetup_email=meetup_email,
                 )
 
-                # Update session state with onboarded user
-                st.session_state.current_user = updated_user
+                # User updated - no session caching needed
 
                 st.success("✅ Registration complete! Welcome to the AIPPRO Badging System.")
                 st.info("🔄 Redirecting to your dashboard...")

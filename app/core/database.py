@@ -1,6 +1,7 @@
 """Database configuration and connection management."""
 
-from sqlmodel import SQLModel, create_engine, Session
+from sqlmodel import Session, SQLModel, create_engine
+
 from app.core.config import get_settings
 from app.core.logging import get_logger
 
@@ -10,17 +11,18 @@ logger = get_logger(__name__)
 def get_engine():
     """Get database engine with connection pooling."""
     settings = get_settings()
-    
+
     if not settings.database_url:
         raise ValueError("DATABASE_URL not configured")
-    
-    # For Phase 2A, we use a simple engine configuration
+
+    # SQL echo disabled by default for security - SQL queries can contain sensitive data
+    # Enable only via DATABASE_ECHO=true in .env for debugging
     engine = create_engine(
         settings.database_url,
-        echo=settings.debug,  # Log SQL queries in debug mode
-        pool_pre_ping=True,   # Verify connections before use
+        echo=settings.database_echo,  # SQL logging (disabled by default)
+        pool_pre_ping=True,            # Verify connections before use
     )
-    
+
     return engine
 
 

@@ -1,11 +1,11 @@
 """OAuth authentication UI components using Streamlit native authentication."""
 
-import streamlit as st
-from typing import Optional
 
-from app.services.oauth import get_oauth_service, OAuth2MockService
-from app.models.user import User
+import streamlit as st
+
 from app.core.logging import get_logger
+from app.models.user import User
+from app.services.oauth import OAuth2MockService, get_oauth_service
 
 logger = get_logger(__name__)
 
@@ -19,36 +19,23 @@ def render_oauth_signin() -> None:
     # Check if OAuth authentication just completed
     oauth_service = get_oauth_service()
 
-    # Only sync from OAuth if:
-    # 1. User is authenticated via OAuth (st.user.is_logged_in)
-    # 2. User is NOT already in session state (first login)
-    # 3. OAuth user data has changed (check by comparing google_sub)
+    # Check if user is authenticated via OAuth
     if oauth_service.is_authenticated():
-        # Check if we need to sync from OAuth
-        current_oauth_data = oauth_service.get_oauth_user_info()
-        session_user = st.session_state.get('current_user')
-
-        # Only sync if user not in session OR OAuth ID changed
-        needs_sync = (
-            session_user is None or
-            (current_oauth_data and current_oauth_data.get('sub') != session_user.google_sub)
-        )
-
-        if needs_sync:
-            # User just authenticated or changed - sync with database
-            user = oauth_service.get_current_user()
-            if user:
-                st.session_state.current_user = user
-                st.session_state.auth_method = "oauth"
-                logger.info("OAuth user authenticated", user_id=str(user.id), email=user.email)
-                st.success(f"✅ Signed in successfully as {user.email}")
-                st.rerun()
-            else:
-                st.error("Failed to sync user data. Please try signing in again.")
-                if hasattr(st, 'logout'):
-                    st.logout()
+        # User authenticated - sync with database and return
+        user = oauth_service.get_current_user()
+        if user:
+            logger.info("OAuth user authenticated", user_id=str(user.id), email=user.email)
+            st.success(f"✅ Signed in successfully as {user.email}")
+            st.rerun()
+        else:
+            st.error("Failed to sync user data. Please try signing in again.")
+            if hasattr(st, 'logout'):
+                st.logout()
     else:
         # User not authenticated, show sign-in options
+        from app.core.config import get_settings
+        settings = get_settings()
+
         col1, col2 = st.columns([2, 1])
 
         with col1:
@@ -69,8 +56,8 @@ def render_oauth_signin() -> None:
             """)
 
         with col2:
-            # Development/testing options
-            if st.secrets.get("general", {}).get("debug", False):
+            # Development/testing options - only if explicitly enabled
+            if settings.enable_mock_auth:
                 st.markdown("#### Development Mode")
                 if st.button("🧪 Mock OAuth", type="secondary", use_container_width=True):
                     st.session_state.use_mock_oauth = True
@@ -86,22 +73,22 @@ def render_mock_oauth_form() -> None:
     st.markdown("---")
     st.markdown("#### 🧪 Mock OAuth Authentication")
     st.info("This is for development and testing purposes only.")
-    
+
     with st.form("mock_oauth_form"):
         email = st.text_input(
             "Email Address",
             value="oauth-test@example.com",
             help="Use admin@example.com for admin access"
         )
-        
+
         name = st.text_input(
             "Display Name",
             value="OAuth Test User",
             help="Name to display in the application"
         )
-        
+
         submitted = st.form_submit_button("🔑 Mock Sign In", type="primary")
-        
+
         if submitted and email:
             try:
                 # Create mock OAuth service
@@ -112,23 +99,19 @@ def render_mock_oauth_form() -> None:
                     'email_verified': True,
                     'iss': 'accounts.google.com'
                 })
-                
-                # Simulate login
+
+                # Simulate login (syncs with database, but don't cache in session)
                 user = mock_service.mock_login()
-                
-                # Store in session
-                st.session_state.current_user = user
-                st.session_state.auth_method = "mock_oauth"
                 st.session_state.use_mock_oauth = False
-                
+
                 logger.info("Mock OAuth user authenticated", user_id=str(user.id), email=user.email)
                 st.success(f"Mock sign-in successful! Welcome, {user.email}")
                 st.rerun()
-                
+
             except Exception as e:
                 logger.error("Mock OAuth authentication failed", error=str(e), email=email)
                 st.error(f"Mock authentication failed: {str(e)}")
-    
+
     # Option to go back to real OAuth
     if st.button("← Back to Real OAuth", type="secondary"):
         st.session_state.use_mock_oauth = False
@@ -138,87 +121,78 @@ def render_mock_oauth_form() -> None:
 def render_oauth_user_info(user: User) -> None:
     """Render user info from OAuth authentication with database integration."""
     oauth_service = get_oauth_service()
-    
+
     with st.sidebar:
         st.markdown("### 👤 User Information")
-        
+
         # Basic user information
         st.write(f"**Email:** {user.email}")
         st.write(f"**Role:** {user.role.value}")
         st.write(f"**Status:** {'Active' if user.is_active else 'Inactive'}")
-        
+
         # Display name if available
         if user.username:
             st.write(f"**Name:** {user.username}")
-        
+
         # Last login information
         if user.last_login_at:
             st.write(f"**Last Login:** {user.last_login_at.strftime('%Y-%m-%d %H:%M')}")
-        
+
         # Authentication method indicator
-        auth_method = st.session_state.get("auth_method", "unknown")
-        if auth_method == "oauth":
+        oauth_service = get_oauth_service()
+        if oauth_service.is_authenticated():
             st.success("🔐 Google OAuth")
-        elif auth_method == "mock_oauth":
-            st.warning("🧪 Mock OAuth (Dev)")
-        elif auth_method == "mock":
-            st.info("🎭 Mock Auth (Legacy)")
-        
-        # OAuth user data (for debugging in development)
-        if st.secrets.get("general", {}).get("debug", False):
-            with st.expander("🔍 Debug: OAuth Data"):
-                oauth_data = oauth_service.get_oauth_user_info()
-                if oauth_data:
-                    st.json(oauth_data)
-        
+        else:
+            st.info("🎭 Mock Auth (Dev)")
+
         st.markdown("---")
-        
+
         # Sign out button
         if st.button("Sign Out", type="secondary"):
-            # Clear session state
+            # Clear any session state
             for key in list(st.session_state.keys()):
-                if key.startswith(('current_user', 'auth_method', 'use_mock')):
-                    del st.session_state[key]
-            
+                del st.session_state[key]
+
             # Sign out from OAuth if available
-            if hasattr(st, 'logout') and auth_method == "oauth":
+            oauth_service = get_oauth_service()
+            if hasattr(st, 'logout') and oauth_service.is_authenticated():
+                logger.info("User signing out", user_id=str(user.id), email=user.email)
                 st.logout()
             else:
                 logger.info("User signed out", user_id=str(user.id), email=user.email)
-                st.success("You have been signed out.")
                 st.rerun()
 
 
-def get_current_oauth_user() -> Optional[User]:
+def get_current_oauth_user() -> User | None:
     """
     Get the currently authenticated OAuth user.
 
-    Returns user from session state only - does NOT auto-sync from OAuth.
-    Call this after user has explicitly authenticated.
+    Fetches fresh user data from OAuth service on each call - no caching.
+    This ensures proper OAuth session management and security.
     """
-    # Only return user if already in session state
-    return st.session_state.get('current_user')
+    oauth_service = get_oauth_service()
+    return oauth_service.get_current_user()
 
 
-def require_oauth_authentication() -> Optional[User]:
+def require_oauth_authentication() -> User | None:
     """Require OAuth authentication and return current user or show sign-in form."""
     user = get_current_oauth_user()
-    
+
     if user is None:
         render_oauth_signin()
         st.stop()
-    
+
     return user
 
 
 def require_oauth_admin() -> User:
     """Require OAuth admin authentication and return current user."""
     user = require_oauth_authentication()
-    
+
     if user.role.value != "ADMIN":
         st.error("🚫 Access denied. Admin privileges required.")
         st.stop()
-    
+
     return user
 
 

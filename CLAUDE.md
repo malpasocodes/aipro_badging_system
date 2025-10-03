@@ -220,9 +220,10 @@ rm badging_system.db && uv run alembic upgrade head
   - User role assignment
   - Complete system audit trail access
 
-### Future Role-Based Features (Phases 6-8)
-- **Students**: View earned badges, track program progress, receive notifications
-- **Administrators**: PII-compliant data exports, advanced analytics
+### Additional Role-Based Features (Current - Phase 6)
+- **Students**: View earned badges, track program progress (Phase 6 complete)
+- **Future (Phases 7-8)**: In-app notifications, advanced analytics
+- **Administrators**: PII-compliant data exports (Phase 8)
 
 ### UI/UX Patterns (Current - Phase 5)
 - Streamlit native OAuth sign-in interface
@@ -234,10 +235,13 @@ rm badging_system.db && uv run alembic upgrade head
 - Tab-based interfaces for catalog management (Phase 5)
 - Real-time form validation with inline errors
 
-### Future UI/UX Patterns (Phases 6-9)
-- Progress visualization for badge completion
+### Additional UI/UX Patterns (Current - Phase 6)
+- **Progress Dashboard (Phase 6)**: Badge displays, progress tracking, completion percentages
+- **Award Management UI (Phase 6)**: Statistics, manual awards, user award viewer
+
+### Future UI/UX Patterns (Phases 7-9)
+- In-app toast notifications for awards and approvals
 - PII masking in all user interfaces
-- Toast notifications for user feedback
 - Comprehensive accessibility features
 
 ## Phase Planning and Approval Process
@@ -429,19 +433,21 @@ Run the complete test suite to verify the implementation:
 uv run pytest -v
 ```
 
-**Test Coverage (Phase 5):**
-- **Total Tests**: 170 tests (159 passing, 11 pre-existing failures in unrelated tests)
+**Test Coverage (Phase 6):**
+- **Total Tests**: 203 tests (193 passing, 10 pre-existing failures in unrelated tests)
 - **OAuth Unit Tests**: 20 tests (OAuth service logic)
 - **OAuth Integration Tests**: 8 tests (end-to-end OAuth flows)
 - **Auth Unit Tests**: 11 tests (user management and role assignment)
 - **Auth Integration Tests**: 4 tests (database integration)
-- **Onboarding Unit Tests**: 33 tests (onboarding service validation)
+- **Onboarding Unit Tests**: 34 tests (onboarding service validation)
 - **Onboarding Integration Tests**: 9 tests (onboarding workflow)
 - **Request Unit Tests**: 20 tests (request submission and approval)
 - **Catalog Unit Tests**: 28 tests (catalog CRUD operations)
 - **Catalog Integration Tests**: 10 tests (end-to-end catalog workflows)
-- **Session Tests**: 12 tests (session management, some with pre-existing mocking issues)
-- **Core Tests**: 7 tests (smoke tests, config, logging)
+- **Progress Unit Tests**: 20 tests (ProgressService award logic and progression)
+- **Progress Integration Tests**: 13 tests (end-to-end progression workflows)
+- **Session Tests**: 13 tests (session management, some with pre-existing mocking issues)
+- **Core Tests**: 8 tests (smoke tests, config, logging, main)
 
 **Test Structure:**
 - `tests/unit/` - Unit tests with mocked dependencies and in-memory SQLite
@@ -454,6 +460,10 @@ uv run pytest -v
 uv run pytest tests/unit/test_catalog_service.py -v
 uv run pytest tests/integration/test_catalog_integration.py -v
 
+# Run only progress/award tests (Phase 6)
+uv run pytest tests/unit/test_progress_service.py -v
+uv run pytest tests/integration/test_progression_integration.py -v
+
 # Run only request service tests
 uv run pytest tests/unit/test_request_service.py -v
 
@@ -464,13 +474,15 @@ uv run coverage report
 
 ## Testing Strategy
 
-### Current Testing (Phase 5)
+### Current Testing (Phase 6)
 - **Unit tests**: Services with in-memory SQLite database for isolation
 - **Integration tests**: End-to-end flows with test database injection
 - **Test database pattern**: All services accept optional `engine` parameter for testing
 - **Coverage target**: 50% minimum (achieved and maintained)
+- **Performance tests**: Progression logic validated at <100ms target
+- **Business logic tests**: Automatic progression rules thoroughly validated
 
-### Future Testing (Phases 6-8)
+### Future Testing (Phases 7-8)
 - **Security tests**: Role guard enforcement and PII redaction validation
 - **E2E tests**: Playwright-based UI testing
 - **Coverage target**: ≥ 80%

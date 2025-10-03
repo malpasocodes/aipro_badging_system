@@ -11,12 +11,12 @@ from app.routers import (
     render_student_dashboard,
 )
 from app.services.onboarding import get_onboarding_service
-from app.ui.auth import get_current_user, require_authentication, render_user_info
+from app.ui.auth import get_current_user, render_user_info, require_authentication
 from app.ui.oauth_auth import (
     get_current_oauth_user,
-    require_oauth_authentication,
+    is_oauth_available,
     render_oauth_user_info,
-    is_oauth_available
+    require_oauth_authentication,
 )
 from app.ui.onboarding import render_onboarding_form
 
@@ -40,15 +40,14 @@ def main() -> None:
     # Get settings
     settings = get_settings()
 
-    # Check if user is already authenticated (in session state)
+    # Check if user is authenticated via OAuth
     # Phase 2B: Try OAuth authentication first if available
+    # No session caching - always fetch from OAuth for security
     if is_oauth_available():
         user = get_current_oauth_user()
-        auth_method = "oauth"
     else:
         # Fallback to Phase 2A authentication
         user = get_current_user()
-        auth_method = "legacy"
 
     # If no authenticated user, show login page
     if not user:
@@ -77,7 +76,7 @@ def main() -> None:
             return
 
         # User is authenticated and registered - show user info in sidebar
-        if auth_method == "oauth":
+        if is_oauth_available():
             render_oauth_user_info(user)
         else:
             render_user_info(user)
@@ -100,7 +99,6 @@ def main() -> None:
             st.markdown("### 🔧 Development Information")
             st.write(f"**User ID:** {user.id}")
             st.write(f"**Role:** {user.role.value}")
-            st.write(f"**Authentication Method:** {auth_method}")
             st.write(f"**OAuth Available:** {is_oauth_available()}")
             st.write(f"**Streamlit Version:** {st.__version__}")
             st.write(f"**Onboarded:** {user.is_onboarded()}")
