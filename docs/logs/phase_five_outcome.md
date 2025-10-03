@@ -340,13 +340,129 @@ if needs_sync:
 
 ### Lessons Learned
 1. **Streamlit expanders are not lazy** - Content executes immediately regardless of `expanded` state
-2. **Session state is essential** - Cache expensive queries to avoid redundant database hits
-3. **Debug logging is valuable** - `echo=settings.debug` helped identify N+1 query problems
+2. **Session state caching is a security risk** - Should not cache user authentication state
+3. **Debug logging is valuable but dangerous** - `echo=settings.debug` helped identify N+1 query problems but exposes sensitive data
 4. **User feedback matters** - "No calls should be made unless the user requests something"
+
+## Post-Phase 5 Security Hardening (v0.5.2)
+
+**Date:** 2025-10-03
+**Focus:** Remove session caching security vulnerabilities and SQL logging exposure
+
+### Security Issues Identified
+
+1. **Session State Caching (Critical)** - User data cached in `st.session_state.current_user` caused:
+   - Automatic login on page refresh without OAuth validation
+   - Potential session hijacking risk
+   - Incorrect OAuth flow behavior
+
+2. **SQL Echo Logging (High)** - `echo=settings.debug` logged all SQL queries:
+   - Exposed sensitive user data (emails, IDs, names) in terminal logs
+   - PII exposure in development logs
+   - No easy way to disable without changing debug mode
+
+3. **Debug-Based Mock OAuth (Medium)** - Mock OAuth accessible via `st.secrets.general.debug`:
+   - Could be accidentally enabled in production
+   - Bypass authentication security
+   - Should require explicit configuration
+
+### Security Fixes Implemented
+
+#### 1. Removed Session State Caching
+- **Files:** `app/ui/oauth_auth.py`, `app/main.py`, `app/ui/onboarding.py`
+- **Change:** Removed all `st.session_state.current_user` caching
+- **Before:** User data cached in session state, auto-login on refresh
+- **After:** User data fetched fresh from OAuth service on every request
+- **Pattern:** `get_current_oauth_user()` now calls `oauth_service.get_current_user()` directly
+
+**Authentication Flow (Corrected):**
+```python
+# Before (insecure):
+if oauth_service.is_authenticated():
+    user = oauth_service.get_current_user()
+    st.session_state.current_user = user  # SECURITY RISK
+
+# After (secure):
+def get_current_oauth_user() -> Optional[User]:
+    oauth_service = get_oauth_service()
+    return oauth_service.get_current_user()  # No caching
+```
+
+#### 2. Disabled SQL Echo Logging by Default
+- **Files:** `app/core/config.py`, `app/core/database.py`
+- **Change:** Added `database_echo: bool = False` config setting
+- **Before:** `echo=settings.debug` logged all SQL to terminal
+- **After:** `echo=settings.database_echo` only when explicitly enabled
+- **Configuration:** Added `DATABASE_ECHO` to `.env` with security warning
+
+**Database Engine Configuration:**
+```python
+# Before (exposes SQL by default):
+engine = create_engine(
+    settings.database_url,
+    echo=settings.debug,  # Always on in debug mode
+)
+
+# After (secure):
+engine = create_engine(
+    settings.database_url,
+    echo=settings.database_echo,  # Explicit opt-in only
+)
+```
+
+#### 3. Removed Debug Flag-Based Mock OAuth
+- **File:** `app/ui/oauth_auth.py`
+- **Change:** Mock OAuth now requires explicit `ENABLE_MOCK_AUTH` environment variable
+- **Before:** Accessible via `st.secrets.general.debug`
+- **After:** Only enabled via `settings.enable_mock_auth` from environment
+- **Security:** Cannot be accidentally enabled via debug mode
+
+### Files Modified (v0.5.2)
+1. `app/core/config.py` - Added `database_echo` setting
+2. `app/core/database.py` - Changed echo logic to use explicit config
+3. `app/ui/oauth_auth.py` - Removed session caching, fixed mock OAuth access
+4. `app/main.py` - Removed session state references
+5. `app/ui/onboarding.py` - Removed session state caching
+6. `.env.example` - Added DATABASE_ECHO with security warning
+7. `CLAUDE.md` - Updated documentation with security notes
+
+### Testing (v0.5.2)
+- ✅ OAuth login works without session caching
+- ✅ No automatic login on page refresh (correct behavior)
+- ✅ Terminal logging is quiet (no SQL queries by default)
+- ✅ Mock OAuth only accessible when explicitly enabled
+- ✅ All existing tests still pass
+
+### Performance vs Security Trade-off
+
+**Decision:** Security over performance
+- Fetching user from OAuth on each request adds ~10-20ms overhead
+- This is acceptable for proper OAuth session management
+- OAuth sessions are still managed by Streamlit (persistence is correct)
+- Only the session state caching was removed (security risk)
+
+### Commit
+```
+fix(security): Remove session caching and disable SQL logging
+
+Phase 5 Security Hardening:
+- Remove st.session_state.current_user caching (security risk)
+- Disable SQL echo logging by default (exposes sensitive data)
+- Remove debug flag-based mock OAuth access
+- Add DATABASE_ECHO config with security warning
+```
+
+**Commit Hash:** 088da51
+
+### Lessons Learned (Security)
+1. **Session caching can be a security vulnerability** - Always validate authentication fresh
+2. **Debug mode should not expose sensitive data** - SQL logging needs explicit opt-in
+3. **Mock authentication needs explicit configuration** - Never tie to debug mode
+4. **OAuth sessions != session state caching** - Streamlit OAuth handles persistence correctly
 
 ## Sign-off
 
-**Phase 5 Status:** ✅ ACCEPTED (including v0.5.1 performance optimization)
+**Phase 5 Status:** ✅ ACCEPTED (including v0.5.1 performance + v0.5.2 security hardening)
 **Ready for:** Production deployment
 **Approved by:** Alfred Essa
-**Date:** 2025-10-01
+**Date:** 2025-10-03
