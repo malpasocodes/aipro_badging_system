@@ -6,7 +6,7 @@ from app.models.user import User
 from app.ui.approval_queue import render_approval_queue
 from app.ui.award_management import render_award_management
 from app.ui.catalog_management import render_catalog_management
-from app.ui.roster import render_roster
+from app.ui.user_management import render_add_delete_user, render_user_roster
 
 
 def render_admin_dashboard(user: User) -> None:
@@ -23,24 +23,51 @@ def render_admin_dashboard(user: User) -> None:
     # Admin-specific features
     st.markdown("### 🔧 Admin Functions")
 
-    # User Management section - NEW in Phase 4 (with role editing)
+    # User Management section - Function-based buttons with session state persistence
     with st.expander("👥 User Management", expanded=False):
-        if st.button("📊 Load User Management", key="load_user_mgmt"):
-            render_roster(user, can_edit_roles=True)
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button(
+                "📊 User Roster", key="btn_user_roster", use_container_width=True
+            ):
+                st.session_state.active_user_mgmt_function = "roster"
+        with col2:
+            if st.button(
+                "➕➖ Add / Delete User",
+                key="btn_add_delete_user",
+                use_container_width=True,
+            ):
+                st.session_state.active_user_mgmt_function = "add_delete"
+
+        # Render the active function (persists across reruns)
+        active_function = st.session_state.get("active_user_mgmt_function")
+        if active_function == "roster":
+            render_user_roster(user)
+        elif active_function == "add_delete":
+            render_add_delete_user(user)
 
     # Approval Queue (Admin can approve too) - NEW in Phase 4
-    with st.expander("✅ Approval Queue"):
+    with st.expander("✅ Approval Queue", expanded=False):
         if st.button("📋 Load Approval Queue", key="load_approval_queue"):
+            st.session_state.active_approval_queue = True
+
+        if st.session_state.get("active_approval_queue"):
             render_approval_queue(user)
 
     # Badge Catalog Management - NEW in Phase 5
-    with st.expander("📚 Badge Catalog Management"):
+    with st.expander("📚 Badge Catalog Management", expanded=False):
         if st.button("📚 Load Catalog Management", key="load_catalog_mgmt"):
+            st.session_state.active_catalog_mgmt = True
+
+        if st.session_state.get("active_catalog_mgmt"):
             render_catalog_management(user)
 
     # Award Management - NEW in Phase 6
-    with st.expander("🏆 Award Management"):
+    with st.expander("🏆 Award Management", expanded=False):
         if st.button("🏆 Load Award Management", key="load_award_mgmt"):
+            st.session_state.active_award_mgmt = True
+
+        if st.session_state.get("active_award_mgmt"):
             render_award_management(user)
 
     # System Administration

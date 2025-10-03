@@ -460,9 +460,117 @@ Phase 5 Security Hardening:
 3. **Mock authentication needs explicit configuration** - Never tie to debug mode
 4. **OAuth sessions != session state caching** - Streamlit OAuth handles persistence correctly
 
+## Post-Phase 5 User Management Redesign (v0.5.3)
+
+**Date:** 2025-10-03
+**Focus:** Admin UI/UX enhancement - Function-based user management
+
+### Changes Implemented
+
+#### 1. Redesigned User Management UI
+**File:** `app/ui/user_management.py` (new file, 307 lines)
+
+Replaced single "User Roster" view with function-based button layout:
+- **User Roster Button** → Read-only user list (no edit capabilities)
+  - Shows: Username/Email, Role (with emoji), Status (Onboarded/Not Onboarded/Inactive)
+  - Metrics: Total Users, Students, Assistants, Admins (active only)
+  - Role filter: All, Students, Assistants, Admins
+  - Excludes inactive users by default
+- **Add / Delete User Button** → Tab-based interface
+  - **Add User tab:** Email input → creates Student role user
+  - **Delete User tab:** Dropdown selection → soft delete (set is_active=False)
+  - Form-based to prevent unwanted reruns
+
+#### 2. Enhanced RosterService
+**File:** `app/services/roster_service.py`
+
+Added new methods:
+- `create_user(email, actor_id, actor_role)` - Create user with Student role (admin-only)
+  - Email validation and duplicate checking
+  - Temporary google_sub (updated on first OAuth login)
+  - Complete audit logging
+- `delete_user(user_id, actor_id, actor_role)` - Soft delete (admin-only)
+  - Sets is_active=False
+  - Preserves all user data for audit trail
+  - Complete audit logging
+- `get_user_stats()` - Fixed to exclude inactive users from all counts
+  - Total, Students, Assistants, Admins now count only active users
+  - Added `and u.is_active` filter to all role counts
+
+#### 3. Session State Persistence for Admin Functions
+**File:** `app/routers/admin.py`
+
+Implemented session state pattern for all admin sections:
+- User Management: `st.session_state.active_user_mgmt_function`
+- Approval Queue: `st.session_state.active_approval_queue`
+- Catalog Management: `st.session_state.active_catalog_mgmt`
+- Award Management: `st.session_state.active_award_mgmt`
+
+**Benefits:**
+- Functions persist across page reruns (no more collapsing expanders)
+- Form interactions (checkboxes, dropdowns) don't kick user back to top
+- Consistent UX across all admin functions
+
+#### 4. Form-Based Delete User Interface
+
+**Challenge:** Checkbox and dropdown interactions caused page reruns
+**Solution:** Wrapped entire delete interface in `st.form()`
+- User selection dropdown doesn't trigger rerun
+- Confirmation checkbox doesn't trigger rerun
+- Only submit button triggers action
+- Validation on submit (error if checkbox not checked)
+
+### Files Created/Modified (v0.5.3)
+
+**Created:**
+1. `app/ui/user_management.py` - New function-based user management UI (307 lines)
+
+**Modified:**
+1. `app/routers/admin.py` - Session state persistence pattern for all admin functions
+2. `app/services/roster_service.py` - create_user(), delete_user(), fixed get_user_stats()
+
+### Testing (v0.5.3)
+- ✅ User Roster shows only active users
+- ✅ Statistics count only active users
+- ✅ Add User creates Student role user with audit log
+- ✅ Delete User soft deletes (is_active=False) with audit log
+- ✅ Form interactions don't collapse expanders
+- ✅ Session state persists function view across reruns
+- ✅ Authorization checks enforce admin-only operations
+
+### Business Rules (v0.5.3)
+- All new users created with Student role by default
+- Delete is soft delete (is_active=False) - data preserved
+- Inactive users hidden from roster by default
+- User statistics exclude inactive users
+- Admin cannot delete themselves
+- Complete audit trail for all user create/delete operations
+
+### Lessons Learned (UI/UX)
+1. **Session state solves rerun collapse** - Store active function in session state
+2. **Forms prevent unwanted reruns** - Wrap interactive elements in st.form()
+3. **Function-based buttons are clearer** - One button per function vs. single "Load" button
+4. **Read-only views are valuable** - Not everything needs edit capabilities
+5. **Soft deletes preserve integrity** - Never hard delete users with historical data
+
+### Commit
+```
+feat(admin): Redesign User Management with function-based UI
+
+Phase 5 UI/UX Enhancement:
+- Replace single roster view with function-based buttons
+- Add User Roster (read-only view)
+- Add Add/Delete User (create and soft delete)
+- Implement session state persistence for admin functions
+- Fix user statistics to exclude inactive users
+- Complete audit logging for user creation/deletion
+```
+
+**Commit Hash:** (to be added)
+
 ## Sign-off
 
-**Phase 5 Status:** ✅ ACCEPTED (including v0.5.1 performance + v0.5.2 security hardening)
+**Phase 5 Status:** ✅ ACCEPTED (including v0.5.1 performance + v0.5.2 security + v0.5.3 UX enhancement)
 **Ready for:** Production deployment
 **Approved by:** Alfred Essa
 **Date:** 2025-10-03

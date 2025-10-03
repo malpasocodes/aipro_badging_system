@@ -1,7 +1,6 @@
 """Roster service for user management."""
 
 from datetime import datetime
-from typing import Dict, List, Optional
 from uuid import UUID
 
 from sqlmodel import Session, select
@@ -16,11 +15,13 @@ logger = get_logger(__name__)
 
 class RosterError(Exception):
     """Base exception for roster-related errors."""
+
     pass
 
 
 class AuthorizationError(RosterError):
     """Authorization-related errors."""
+
     pass
 
 
@@ -32,11 +33,11 @@ class RosterService:
 
     def get_all_users(
         self,
-        role_filter: Optional[UserRole] = None,
+        role_filter: UserRole | None = None,
         include_inactive: bool = False,
         limit: int = 100,
         offset: int = 0,
-    ) -> List[User]:
+    ) -> list[User]:
         """
         Get all users with optional filtering.
 
@@ -58,18 +59,14 @@ class RosterService:
                 statement = statement.where(User.role == role_filter)
 
             if not include_inactive:
-                statement = statement.where(User.is_active == True)
+                statement = statement.where(User.is_active)
 
-            statement = (
-                statement.order_by(User.username)
-                .limit(limit)
-                .offset(offset)
-            )
+            statement = statement.order_by(User.username).limit(limit).offset(offset)
 
             results = session.exec(statement).all()
             return list(results)
 
-    def get_user_by_id(self, user_id: UUID) -> Optional[User]:
+    def get_user_by_id(self, user_id: UUID) -> User | None:
         """
         Get a specific user by ID.
 
@@ -85,7 +82,7 @@ class RosterService:
             statement = select(User).where(User.id == user_id)
             return session.exec(statement).first()
 
-    def get_user_by_email(self, email: str) -> Optional[User]:
+    def get_user_by_email(self, email: str) -> User | None:
         """
         Get a user by email address.
 
@@ -101,7 +98,7 @@ class RosterService:
             statement = select(User).where(User.email == email.lower())
             return session.exec(statement).first()
 
-    def get_user_stats(self) -> Dict[str, int]:
+    def get_user_stats(self) -> dict[str, int]:
         """
         Get user statistics by role.
 
@@ -120,11 +117,18 @@ class RosterService:
         with Session(engine) as session:
             all_users = session.exec(select(User)).all()
 
+            # Count only active users for role statistics
             stats = {
-                "total": len(all_users),
-                "admins": sum(1 for u in all_users if u.role == UserRole.ADMIN),
-                "assistants": sum(1 for u in all_users if u.role == UserRole.ASSISTANT),
-                "students": sum(1 for u in all_users if u.role == UserRole.STUDENT),
+                "total": sum(1 for u in all_users if u.is_active),
+                "admins": sum(
+                    1 for u in all_users if u.role == UserRole.ADMIN and u.is_active
+                ),
+                "assistants": sum(
+                    1 for u in all_users if u.role == UserRole.ASSISTANT and u.is_active
+                ),
+                "students": sum(
+                    1 for u in all_users if u.role == UserRole.STUDENT and u.is_active
+                ),
                 "active": sum(1 for u in all_users if u.is_active),
                 "inactive": sum(1 for u in all_users if not u.is_active),
             }
@@ -279,7 +283,7 @@ class RosterService:
 
             return user
 
-    def count_users(self, role_filter: Optional[UserRole] = None) -> int:
+    def count_users(self, role_filter: UserRole | None = None) -> int:
         """
         Count users with optional role filter.
 
@@ -299,6 +303,152 @@ class RosterService:
 
             results = session.exec(statement).all()
             return len(results)
+
+    def create_user(
+        self,
+        email: str,
+        actor_id: UUID,
+        actor_role: UserRole,
+    ) -> User:
+        """
+        Create a new user with Student role (admin-only operation).
+
+        Args:
+            email: User's email address
+            actor_id: ID of admin performing the creation
+            actor_role: Role of the actor (for authorization check)
+
+        Returns:
+            Created User object
+
+        Raises:
+            RosterError: If user creation fails or user already exists
+            AuthorizationError: If actor is not an admin
+        """
+        # Check authorization - only admins can create users
+        if actor_role != UserRole.ADMIN:
+            raise AuthorizationError("Only admins can create users")
+
+        # Normalize email
+        email = email.lower().strip()
+
+        engine = get_engine()
+
+        with Session(engine) as session:
+            # Check if user already exists
+            statement = select(User).where(User.email == email)
+            existing_user = session.exec(statement).first()
+
+            if existing_user:
+                raise RosterError(f"User with email {email} already exists")
+
+            # Create new user with Student role
+            # Note: google_sub will be set when they first login via OAuth
+            new_user = User(
+                email=email,
+                role=UserRole.STUDENT,  # All new users start as students
+                is_active=True,
+                google_sub=f"manual_create_{email}",  # Temporary, will be updated on first login
+            )
+
+            session.add(new_user)
+            session.commit()
+            session.refresh(new_user)
+
+            # Create audit log
+            self.audit_service.log_action(
+                actor_user_id=actor_id,
+                action="create_user",
+                entity="user",
+                entity_id=new_user.id,
+                context_data={
+                    "user_id": str(new_user.id),
+                    "email": email,
+                    "role": UserRole.STUDENT.value,
+                    "created_by": "admin",
+                },
+            )
+
+            logger.info(
+                "User created",
+                user_id=str(new_user.id),
+                email=email,
+                role=UserRole.STUDENT.value,
+                actor_id=str(actor_id),
+            )
+
+            return new_user
+
+    def delete_user(
+        self,
+        user_id: UUID,
+        actor_id: UUID,
+        actor_role: UserRole,
+    ) -> User:
+        """
+        Delete (deactivate) a user (admin-only operation).
+
+        This is a soft delete - sets is_active to False.
+
+        Args:
+            user_id: ID of user to delete
+            actor_id: ID of admin performing the deletion
+            actor_role: Role of the actor (for authorization check)
+
+        Returns:
+            Deleted (deactivated) User object
+
+        Raises:
+            RosterError: If user not found or cannot be deleted
+            AuthorizationError: If actor is not an admin
+        """
+        # Check authorization - only admins can delete users
+        if actor_role != UserRole.ADMIN:
+            raise AuthorizationError("Only admins can delete users")
+
+        engine = get_engine()
+
+        with Session(engine) as session:
+            # Get user
+            statement = select(User).where(User.id == user_id)
+            user = session.exec(statement).first()
+
+            if not user:
+                raise RosterError(f"User {user_id} not found")
+
+            if not user.is_active:
+                raise RosterError(f"User {user.email} is already inactive")
+
+            # Soft delete - deactivate user
+            user.is_active = False
+            user.updated_at = datetime.utcnow()
+
+            session.add(user)
+            session.commit()
+            session.refresh(user)
+
+            # Create audit log
+            self.audit_service.log_action(
+                actor_user_id=actor_id,
+                action="delete_user",
+                entity="user",
+                entity_id=user_id,
+                context_data={
+                    "user_id": str(user_id),
+                    "email": user.email,
+                    "role": user.role.value,
+                    "deleted_by": "admin",
+                },
+            )
+
+            logger.info(
+                "User deleted (deactivated)",
+                user_id=str(user_id),
+                email=user.email,
+                actor_id=str(actor_id),
+            )
+
+            return user
 
 
 # Service factory function
