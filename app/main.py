@@ -14,6 +14,7 @@ import streamlit as st
 
 from app.core.config import get_settings
 from app.core.logging import setup_logging
+from app.core.secrets_bootstrap import ensure_streamlit_secrets_file
 from app.models.user import UserRole
 from app.routers import (
     render_admin_dashboard,
@@ -33,6 +34,7 @@ from app.ui.onboarding import render_onboarding_form
 
 def main() -> None:
     """Main application entry point."""
+    ensure_streamlit_secrets_file()
     # Initialize logging
     setup_logging()
 

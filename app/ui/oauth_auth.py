@@ -5,6 +5,7 @@ import streamlit as st
 from streamlit.errors import StreamlitAuthError
 
 from app.core.logging import get_logger
+from app.core.secrets_bootstrap import ensure_streamlit_secrets_file
 from app.models.user import User
 from app.services.oauth import OAuth2MockService, get_oauth_service
 
@@ -21,6 +22,7 @@ logger = get_logger(__name__)
 
 def _get_missing_oauth_config_keys() -> list[str]:
     """Return required OAuth secret keys that are missing or empty."""
+    ensure_streamlit_secrets_file()
     if not hasattr(st, "secrets"):
         return list(REQUIRED_OAUTH_SECRETS)
 
