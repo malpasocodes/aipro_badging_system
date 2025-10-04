@@ -1,136 +1,77 @@
 # Render Deployment Notes for AIPPRO Badging System
 
-This document summarizes recommendations and clarifications for deploying the AIPPRO Badging System on Render using the provided `render.yaml`.
+This document captures the current guidance for deploying the Streamlit app on
+Render using the repository’s `render.yaml` Blueprint.
 
 ---
 
-## Key Changes and Recommendations
+## Blueprint Highlights
+- **env:** `python`
+- **runtime:** pinned via `runtime.txt`
+- **buildCommand:** `pip install -r requirements.txt`
+- **startCommand:** `alembic upgrade head && streamlit run streamlit_app.py --server.port $PORT --server.address 0.0.0.0 --server.headless true`
+- **autoDeploy:** enabled on `main`
+- **healthCheckPath:** `/_stcore/health`
+- **database:** managed Postgres instance provisioned automatically
 
-### 1. Use `env: python` Instead of `runtime: python`
-Render's Blueprint spec expects `env: python`. Example:
-```yaml
-- type: web
-  name: aippro-badging-system
-  env: python
-```
+## Secrets & Configuration
+Render cannot mount `.streamlit/secrets.toml` via Secret Files (forward slashes
+are disallowed). Instead set environment variables using Streamlit’s
+`STREAMLIT_SECTION__KEY` convention. At runtime
+`app/core/secrets_bootstrap.ensure_streamlit_secrets_file()` writes the TOML file
+that Streamlit expects.
 
-### 2. Pin Python via `runtime.txt`
-Instead of relying on an environment variable, create a `runtime.txt` file at the repository root:
-```
-python-3.11.9
-```
+Recommended variables:
 
-This ensures Render selects the correct Python version.
+| Key | Value / Source |
+| --- | --- |
+| `STREAMLIT_AUTH__CLIENT_ID` | Google OAuth client ID |
+| `STREAMLIT_AUTH__CLIENT_SECRET` | Google OAuth client secret |
+| `STREAMLIT_AUTH__COOKIE_SECRET` | Random 32+ char string (`python -c "import secrets; print(secrets.token_urlsafe(32))"`) |
+| `STREAMLIT_AUTH__REDIRECT_URI` | `https://aipro-badging-system.onrender.com/oauth2callback` |
+| `STREAMLIT_AUTH__SERVER_METADATA_URL` | `https://accounts.google.com/.well-known/openid-configuration` |
+| `STREAMLIT_GENERAL__DEBUG` | `false` (optional) |
+| `STREAMLIT_GENERAL__ENABLE_MOCK_AUTH` | `false` (optional) |
+| `ADMIN_EMAILS` | Comma-separated admin list |
+| `DATABASE_URL` | Auto-populated from the managed database |
 
-### 3. Database Migrations
-Currently the `startCommand` only runs Streamlit. If Alembic migrations are required, prepend them:
-```yaml
-startCommand: bash -lc "alembic upgrade head && streamlit run app/main.py --server.port $PORT --server.address 0.0.0.0 --server.headless true"
-```
-
-### 4. Health Check
-The current setting:
-```
-healthCheckPath: /_stcore/health
-```
-is correct for Streamlit. Keep it.
-
-### 5. Secret Files for Google OAuth
-Use Render's **Secret Files** feature to provide `.streamlit/secrets.toml` with the following keys:
-```toml
-[auth]
-client_id = "your-google-client-id"
-client_secret = "your-google-client-secret"
-cookie_secret = "long-random-secret"
-redirect_uri = "https://aipro-badging-system.onrender.com/oauth2callback"
-```
-
-Make sure this path matches your app code. The redirect URI must exactly match what you register in the Google Cloud Console.
-
-### 6. Environment Variables
-Keep environment variables minimal in `render.yaml` and mark sensitive ones with `sync: false` to be set manually in the Render dashboard.
-
-Suggested:
-```yaml
-envVars:
-  - key: APP_ENV
-    value: production
-  - key: DEBUG
-    value: "false"
-  - key: LOG_LEVEL
-    value: INFO
-  - key: DATABASE_URL
-    fromDatabase:
-      name: aippro-badging-db
-      property: connectionString
-  - key: ADMIN_EMAILS
-    sync: false
-  - key: GOOGLE_CLIENT_ID
-    sync: false
-  - key: GOOGLE_CLIENT_SECRET
-    sync: false
-```
-
-### 7. Region Consistency
-Both the web service and database are set to `oregon`. Keep them aligned.
-
-### 8. Continuous Deployment
-Enable automatic deploys from the `main` branch by adding:
-```yaml
-autoDeploy: true
-```
-
----
-
-## Example Updated `render.yaml`
-
-```yaml
-services:
-  - type: web
-    name: aippro-badging-system
-    env: python
-    plan: free
-    region: oregon
-    branch: main
-    buildCommand: pip install -r requirements.txt
-    startCommand: bash -lc "alembic upgrade head && streamlit run app/main.py --server.port $PORT --server.address 0.0.0.0 --server.headless true"
-    healthCheckPath: /_stcore/health
-    autoDeploy: true
-
-    envVars:
-      - key: APP_ENV
-        value: production
-      - key: DEBUG
-        value: "false"
-      - key: LOG_LEVEL
-        value: INFO
-      - key: DATABASE_URL
-        fromDatabase:
-          name: aippro-badging-db
-          property: connectionString
-      - key: ADMIN_EMAILS
-        sync: false
-      - key: GOOGLE_CLIENT_ID
-        sync: false
-      - key: GOOGLE_CLIENT_SECRET
-        sync: false
-
-databases:
-  - name: aippro-badging-db
-    databaseName: aippro_badging_system
-    plan: free
-    region: oregon
-    ipAllowList: []
-```
-
----
+> The bootstrapper also accepts legacy names (`STREAMLIT_AUTH_CLIENT_ID`, etc.)
+> but use the double underscores to stay consistent with Streamlit’s mapping.
 
 ## Deployment Checklist
+1. **Repository**
+   - Ensure `render.yaml`, `requirements.txt`, and `runtime.txt` are committed
+   - Push latest code to the `main` branch
+2. **Render Setup**
+   - “New +” → **Blueprint** → select the repo
+   - Accept detected services/database from `render.yaml`
+3. **Environment Variables**
+   - Add `STREAMLIT_AUTH__*`, `STREAMLIT_GENERAL__*`, `ADMIN_EMAILS`
+   - Render fills `DATABASE_URL` automatically after the first deploy
+4. **Google OAuth Console**
+   - Add redirect URI `https://aipro-badging-system.onrender.com/oauth2callback`
+   - Verify authorized domain matches the Render URL
+5. **Deploy**
+   - Trigger **Manual Deploy → Deploy latest commit** if an automatic deploy
+     was paused waiting for secrets
+   - Watch logs for successful Alembic migrations and Streamlit start-up
+6. **Post-Deploy Checks**
+   - Visit the public URL; the login card should display the Google sign-in
+   - Confirm the health endpoint `/_stcore/health` returns 200
+   - (Optional) seed demo data via Render Shell: `python scripts/seed_catalog.py`
 
-1. Add `runtime.txt` with `python-3.11.9`.
-2. Push updated `render.yaml` to repo root.
-3. Create `.streamlit/secrets.toml` as a Secret File in Render with production values.
-4. Update Google Cloud Console OAuth redirect URI:
-   - `https://aipro-badging-system.onrender.com/oauth2callback`
-5. Add `ADMIN_EMAILS`, `GOOGLE_CLIENT_ID`, and `GOOGLE_CLIENT_SECRET` in the Render Dashboard.
-6. Deploy. On first deploy, Alembic migrations will run automatically if configured.
+## Troubleshooting
+- **Missing secrets warning in UI** – Double-check the environment variable
+  names, especially the double underscores
+- **Alembic migration errors** – Run the same command locally to reproduce,
+  fix the migration, push again
+- **OAuth redirect mismatch** – Ensure the Render primary URL matches the
+  redirect configured in Google Cloud Console
+- **Users not granted admin** – Verify `ADMIN_EMAILS` aligns with Google account
+  emails (case-insensitive)
+
+## References
+- `render.yaml`
+- `RENDER_SECRETS_SETUP.md`
+- `docs/oauth_setup_guide.md`
+- Streamlit secrets documentation: https://docs.streamlit.io/develop/concepts/connections/secrets-management

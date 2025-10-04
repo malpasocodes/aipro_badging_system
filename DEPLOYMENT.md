@@ -1,418 +1,155 @@
-# Deployment Guide: AIPPRO Badging System on Render
+# Render Deployment (Clean Setup)
 
-This guide provides step-by-step instructions for deploying the AIPPRO Badging System to Render.com from a GitHub repository.
+This guide walks through provisioning a brand-new Render deployment for the AIPPRO Badging System after deleting any previous services. Follow the steps in order; each builds on the previous one.
 
-## Table of Contents
-1. [Prerequisites](#prerequisites)
-2. [Pre-Deployment Setup](#pre-deployment-setup)
-3. [Deploy to Render](#deploy-to-render)
-4. [Post-Deployment Configuration](#post-deployment-configuration)
-5. [Verification](#verification)
-6. [Troubleshooting](#troubleshooting)
-7. [Production Checklist](#production-checklist)
+## Audience & Prerequisites
 
----
+You should be comfortable with Git, Python tooling, and the Render dashboard. Before you begin, make sure you have:
 
-## Prerequisites
+- A GitHub repository containing this project (`main` branch recommended).
+- A Render account with permission to create Blueprint services and PostgreSQL databases.
+- Google OAuth credentials (Client ID + Client Secret) for the production domain.
+- A terminal with `uv` (preferred) or `pip`, plus access to run `git` commands.
+- Ability to generate a 32-character secret (`python -c "import secrets; print(secrets.token_urlsafe(32))"`).
 
-Before deploying, ensure you have:
-
-### 1. GitHub Repository
-- ✅ Code pushed to GitHub (main branch)
-- ✅ `render.yaml` file in repository root (already present)
-- ✅ `requirements.txt` file generated from uv
-
-### 2. Render Account
-- Create account at [render.com](https://render.com)
-- Free tier is sufficient for initial deployment
-
-### 3. Google OAuth Credentials
-- Google Cloud Project created
-- OAuth 2.0 Client ID configured
-- You'll need:
-  - Client ID
-  - Client Secret
+> **Tip:** If you removed the prior Render service, you must recreate both the web app and the database in one pass. Render's Blueprint flow handles this automatically when the repository root contains `render.yaml`.
 
 ---
 
-## Pre-Deployment Setup
+## 1. Prepare the Repository
 
-### Step 1: Generate requirements.txt
-
-Render needs a `requirements.txt` file (doesn't support uv natively):
-
-```bash
-# Generate from pyproject.toml
-uv pip compile pyproject.toml -o requirements.txt
-
-# Or export from current environment
-uv pip freeze > requirements.txt
-```
-
-**Commit and push:**
-```bash
-git add requirements.txt
-git commit -m "build: Add requirements.txt for Render deployment"
-git push
-```
-
-### Step 2: Create runtime.txt (Optional but Recommended)
-
-Pin Python version for Render:
-
-```bash
-echo "python-3.11.9" > runtime.txt
-git add runtime.txt
-git commit -m "build: Add runtime.txt for Render Python version"
-git push
-```
-
-### Step 3: Prepare Secrets Configuration
-
-You'll need these values for deployment:
-
-1. **Google OAuth Client ID** - From Google Cloud Console
-2. **Google OAuth Client Secret** - From Google Cloud Console
-3. **Cookie Secret** - Generate new 32-character secret:
+1. **Sync dependencies locally** so `requirements.txt` and `uv.lock` are fresh:
    ```bash
-   python -c "import secrets; print(secrets.token_urlsafe(32))"
+   uv sync
    ```
-4. **Admin Emails** - Comma-separated list: `admin1@example.com,admin2@example.com`
-
----
-
-## Deploy to Render
-
-### Step 1: Connect GitHub Repository
-
-1. Log in to [Render Dashboard](https://dashboard.render.com)
-2. Click **"New +"** → **"Blueprint"**
-3. Connect your GitHub account if not already connected
-4. Select your repository: `your-username/aipro_badging_system`
-5. Render will detect `render.yaml` automatically
-6. Click **"Apply"**
-
-Render will create:
-- ✅ Web Service: `aippro-badging-system`
-- ✅ PostgreSQL Database: `aippro-badging-db`
-
-### Step 2: Configure Secrets via Environment Variables
-
-**IMPORTANT:** Render's Secret Files feature doesn't allow forward slashes in filenames, so we use Streamlit's environment variable support instead.
-
-Streamlit automatically reads secrets from environment variables prefixed with `STREAMLIT_`.
-
-1. Go to your web service: **aippro-badging-system**
-2. Navigate to **Environment** → **Environment Variables**
-3. Add the following variables (in addition to those in Step 3):
-
-| Key | Value | Notes |
-|-----|-------|-------|
-| `STREAMLIT_AUTH_CLIENT_ID` | `YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com` | Your Google OAuth Client ID |
-| `STREAMLIT_AUTH_CLIENT_SECRET` | `YOUR_GOOGLE_CLIENT_SECRET` | Your Google OAuth Client Secret |
-| `STREAMLIT_AUTH_COOKIE_SECRET` | `YOUR_32_CHARACTER_SECRET_FROM_STEP_3` | New cookie secret for production |
-| `STREAMLIT_AUTH_REDIRECT_URI` | `https://aippro-badging-system.onrender.com/oauth2callback` | Production redirect URI (update with your actual Render URL) |
-| `STREAMLIT_AUTH_SERVER_METADATA_URL` | `https://accounts.google.com/.well-known/openid-configuration` | Google OIDC metadata |
-| `STREAMLIT_GENERAL_DEBUG` | `false` | Disable debug mode in production |
-| `STREAMLIT_GENERAL_ENABLE_MOCK_AUTH` | `false` | Disable mock auth in production |
-
-**How it works:**
-- `STREAMLIT_AUTH_CLIENT_ID` → `st.secrets["auth"]["client_id"]`
-- `STREAMLIT_AUTH_CLIENT_SECRET` → `st.secrets["auth"]["client_secret"]`
-- `STREAMLIT_GENERAL_DEBUG` → `st.secrets["general"]["debug"]`
-
-No code changes required - your existing code using `st.secrets` will work automatically.
-
-**Note:** Replace `aippro-badging-system` with your actual Render service name if different.
-
-For more details, see `RENDER_SECRETS_SETUP.md` in the repository.
-
-### Step 3: Configure Additional Environment Variables
-
-In the Render Dashboard (still in **Environment** → **Environment Variables**), add this additional variable:
-
-| Key | Value | Example |
-|-----|-------|---------|
-| `ADMIN_EMAILS` | Comma-separated admin emails | `admin@example.com,admin2@example.com` |
-
-**Note:** `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are now configured via `STREAMLIT_AUTH_CLIENT_ID` and `STREAMLIT_AUTH_CLIENT_SECRET` in Step 2.
-
-**Auto-configured variables** (from render.yaml - do not modify):
-- `APP_ENV` = `production`
-- `DEBUG` = `false`
-- `LOG_LEVEL` = `INFO`
-- `DATABASE_URL` = (auto-populated from database)
-
-### Step 4: Update Google OAuth Settings
-
-**CRITICAL:** Update your Google Cloud Console OAuth settings:
-
-1. Go to [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
-2. Select your OAuth 2.0 Client ID
-3. Under **Authorized redirect URIs**, add:
-   ```
-   https://aippro-badging-system.onrender.com/oauth2callback
-   ```
-   (Replace `aippro-badging-system` with your actual service name)
-
-4. Under **Authorized JavaScript origins**, add:
-   ```
-   https://aippro-badging-system.onrender.com
-   ```
-
-5. Click **"Save"**
-
-### Step 5: Trigger Deployment
-
-If auto-deploy is enabled (default), deployment starts automatically when you applied the blueprint.
-
-Otherwise:
-1. Go to your web service dashboard
-2. Click **"Manual Deploy"** → **"Deploy latest commit"**
-
-**Deployment process:**
-1. Render pulls code from GitHub
-2. Installs dependencies from `requirements.txt`
-3. Runs database migrations: `alembic upgrade head`
-4. Starts Streamlit app: `streamlit run streamlit_app.py --server.port $PORT --server.address 0.0.0.0 --server.headless true`
-
-**Monitor deployment:**
-- Watch **Logs** tab for progress
-- Deployment typically takes 3-5 minutes
-
----
-
-## Post-Deployment Configuration
-
-### Step 1: Verify Database Migrations
-
-Check logs for successful migration:
-```
-INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
-INFO  [alembic.runtime.migration] Will assume transactional DDL.
-INFO  [alembic.runtime.migration] Running upgrade  -> 8b8ce54544c9, create initial users table
-INFO  [alembic.runtime.migration] Running upgrade 8b8ce54544c9 -> b82afc5ef86a, add requests table for badge approval workflow
-INFO  [alembic.runtime.migration] Running upgrade b82afc5ef86a -> 1723fabe8f8c, add onboarding_completed_at field for phase 3
-INFO  [alembic.runtime.migration] Running upgrade 1723fabe8f8c -> 4a5be144caf5, add catalog tables programs skills mini badges and capstones
-INFO  [alembic.runtime.migration] Running upgrade 4a5be144caf5 -> 2bfe54925752, add awards table for earned badges
-```
-
-### Step 2: Access Your Application
-
-Visit your deployed app:
-```
-https://aippro-badging-system.onrender.com
-```
-
-You should see the Google Sign-In page.
-
-### Step 3: Test OAuth Login
-
-1. Click **"Sign in with Google"**
-2. Authenticate with a Google account matching one of your `ADMIN_EMAILS`
-3. Complete onboarding form (username, Substack email, Meetup email)
-4. You should be redirected to the Admin Dashboard
-
-### Step 4: Seed Initial Data (Optional)
-
-If you want to add sample badge catalog data:
-
-1. Open Render Shell:
-   - Go to service dashboard → **Shell** tab
-   - Click **"Connect to Shell"**
-
-2. Run seed script:
-   ```bash
-   python scripts/seed_catalog.py
-   ```
-
----
-
-## Verification
-
-### Health Check
-
-Render automatically monitors: `https://aippro-badging-system.onrender.com/_stcore/health`
-
-Expected response: `200 OK`
-
-### Database Connection
-
-Check logs for:
-```
-INFO  [app.core.database] Database connection successful
-```
-
-### OAuth Authentication
-
-Test login flow:
-1. Sign in with admin email
-2. Verify admin role assigned
-3. Check Admin Dashboard access
-4. Test creating a user via User Management
-
-### Key Features
-
-Verify these work:
-- ✅ User authentication (Google OAuth)
-- ✅ Admin can access all sections
-- ✅ Badge catalog displays (if seeded)
-- ✅ User roster shows admin user
-- ✅ No errors in Render logs
-
----
-
-## Troubleshooting
-
-### Issue: "OAuth Error - redirect_uri_mismatch"
-
-**Cause:** Redirect URI in Google Console doesn't match deployed URL.
-
-**Fix:**
-1. Check exact URL in error message
-2. Add it to Google Cloud Console → OAuth Client → Authorized redirect URIs
-3. Make sure `.streamlit/secrets.toml` redirect_uri matches exactly
-
-### Issue: "Database connection failed"
-
-**Cause:** DATABASE_URL not set or incorrect.
-
-**Fix:**
-1. Verify PostgreSQL database is running (Render Dashboard → Databases)
-2. Check Environment variables - `DATABASE_URL` should be auto-populated
-3. Restart web service if needed
-
-### Issue: "Secret file not found: .streamlit/secrets.toml"
-
-**Cause:** Render's Secret Files feature doesn't support forward slashes in filenames.
-
-**Fix:**
-1. Use environment variables instead (see RENDER_SECRETS_SETUP.md)
-2. Add all `STREAMLIT_AUTH_*` and `STREAMLIT_GENERAL_*` variables in Environment → Environment Variables
-3. Verify all required variables are set (see Step 2)
-4. Redeploy
-
-### Issue: "No module named 'app'"
-
-**Cause:** requirements.txt missing dependencies.
-
-**Fix:**
-1. Regenerate requirements.txt:
+2. **Regenerate `requirements.txt`** if packages changed:
    ```bash
    uv pip compile pyproject.toml -o requirements.txt
    ```
-2. Push to GitHub
-3. Render will auto-deploy
+3. Confirm the deployment files exist and are committed:
+   - `render.yaml` (Blueprint definition)
+   - `requirements.txt`
+   - `runtime.txt` (pins Python 3.11 for Render)
+4. Run and review tests as needed, then push the latest `main` branch so Render builds from the correct commit:
+   ```bash
+   git push origin main
+   ```
 
-### Issue: "Migration failed"
-
-**Cause:** Database schema conflict or migration issue.
-
-**Fix:**
-1. Check Render logs for specific Alembic error
-2. If starting fresh, can reset database via Render Dashboard
-3. Ensure all migrations are in repo under `alembic/versions/`
-
-### Issue: App loads but no admin access
-
-**Cause:** `ADMIN_EMAILS` not set or email doesn't match.
-
-**Fix:**
-1. Verify `ADMIN_EMAILS` environment variable is set
-2. Ensure email matches exactly (case-sensitive)
-3. Try signing out and back in
-4. Check logs for "role assignment" messages
+> The Blueprint will execute the `buildCommand` and `startCommand` defined in `render.yaml`. Verify the file before pushing if you made local modifications.
 
 ---
 
-## Production Checklist
+## 2. Create a New Blueprint Deployment on Render
 
-Before going live with real users:
+1. Sign in to [Render](https://dashboard.render.com/) and click **New → Blueprint**.
+2. Choose the GitHub repository for the AIPPRO Badging System.
+3. Render detects `render.yaml` automatically and shows a summary:
+   - **Web Service**: `aippro-badging-system` (Python, Free plan by default)
+   - **Database**: `aippro-badging-db` (PostgreSQL, Free plan)
+4. Click **Apply** to create both resources. Render immediately provisions the database and queues the first build for the web service.
 
-### Security
-- [ ] `DEBUG` set to `false`
-- [ ] `DATABASE_ECHO` not set (or set to `false`)
-- [ ] `ENABLE_MOCK_AUTH` not enabled
-- [ ] Cookie secret is strong (32+ characters)
-- [ ] Admin emails verified and limited
-
-### Performance
-- [ ] Upgrade from free tier if needed (for better uptime)
-- [ ] Database on paid plan for backups
-- [ ] Monitor response times
-
-### Monitoring
-- [ ] Enable Render email alerts
-- [ ] Set up uptime monitoring (e.g., UptimeRobot)
-- [ ] Review Render logs regularly
-
-### Backups
-- [ ] Enable PostgreSQL automatic backups (paid plan)
-- [ ] Export badge catalog data periodically
-- [ ] Document recovery procedures
-
-### Custom Domain (Optional)
-- [ ] Purchase domain
-- [ ] Add custom domain in Render Dashboard
-- [ ] Update Google OAuth authorized domains
-- [ ] Update redirect URIs
-
-### User Management
-- [ ] Test student user flow
-- [ ] Test assistant user flow
-- [ ] Verify badge request workflow
-- [ ] Test badge earning and progression
+> If you deleted the previous service name, you can reuse it. Otherwise, edit the service name in the preview (and optionally in `render.yaml`) before clicking **Apply**.
 
 ---
 
-## Support
+## 3. Supply Required Environment Secrets
 
-### Render Documentation
-- [Blueprint Spec](https://render.com/docs/blueprint-spec)
-- [Environment Variables](https://render.com/docs/environment-variables)
-- [Secret Files](https://render.com/docs/secret-files)
-- [PostgreSQL](https://render.com/docs/databases)
+The Blueprint cannot ship OAuth secrets. Before the first build finishes, add these variables manually:
 
-### Project Documentation
-- See `docs/oauth_setup_guide.md` for OAuth configuration
-- See `docs/plans/` for implementation details
-- See `docs/logs/phase_five_outcome.md` for latest features
+1. Open the newly created service → **Environment → Environment Variables**.
+2. Add or edit the keys below (Render stores them encrypted). Use **double underscores** to separate the section from the key—Streamlit maps `STREAMLIT_AUTH__CLIENT_ID` to `st.secrets["auth"]["client_id"]`. The app also accepts the legacy single underscore names, but the double underscore form avoids ambiguity.
 
-### Getting Help
-- Check Render logs first (most issues show here)
-- Verify Google OAuth configuration
-- Review `.streamlit/secrets.toml` format
-- Check environment variables match expectations
+| Key | Example Value | Notes |
+| --- | --- | --- |
+| `STREAMLIT_AUTH__CLIENT_ID` | `your-client-id.apps.googleusercontent.com` | Google OAuth Client ID |
+| `STREAMLIT_AUTH__CLIENT_SECRET` | `your-google-client-secret` | Google OAuth Client Secret |
+| `STREAMLIT_AUTH__COOKIE_SECRET` | output of `python -c "import secrets; print(secrets.token_urlsafe(32))"` | Required for secure cookies |
+| `STREAMLIT_AUTH__REDIRECT_URI` | `https://<service-name>.onrender.com/oauth2callback` | Must match Google console redirect URI |
+| `STREAMLIT_AUTH__SERVER_METADATA_URL` | `https://accounts.google.com/.well-known/openid-configuration` | Google OIDC metadata endpoint |
+| `STREAMLIT_GENERAL__DEBUG` | `false` | Disable verbose debug UI in production |
+| `STREAMLIT_GENERAL__ENABLE_MOCK_AUTH` | `false` | Blocks mock auth in production |
+| `ADMIN_EMAILS` | `admin1@example.com,admin2@example.com` | Comma-separated list of allowed admin accounts |
 
----
+3. Save the environment variable changes. The next build (or a manual redeploy) will include them.
 
-## Quick Reference
-
-### Render Service URLs
-- **Web Service:** `https://aippro-badging-system.onrender.com`
-- **Health Check:** `https://aippro-badging-system.onrender.com/_stcore/health`
-- **OAuth Callback:** `https://aippro-badging-system.onrender.com/oauth2callback`
-
-### Required Environment Variables (Set in Render Dashboard)
-
-**Streamlit Secrets (via environment variables):**
-- `STREAMLIT_AUTH_CLIENT_ID` - OAuth Client ID
-- `STREAMLIT_AUTH_CLIENT_SECRET` - OAuth Client Secret
-- `STREAMLIT_AUTH_REDIRECT_URI` - `https://your-app.onrender.com/oauth2callback`
-- `STREAMLIT_AUTH_COOKIE_SECRET` - 32-character random string
-- `STREAMLIT_AUTH_SERVER_METADATA_URL` - `https://accounts.google.com/.well-known/openid-configuration`
-- `STREAMLIT_GENERAL_DEBUG` - `false`
-- `STREAMLIT_GENERAL_ENABLE_MOCK_AUTH` - `false`
-
-**Application Configuration:**
-- `ADMIN_EMAILS` - Comma-separated admin emails
-
-### Database Connection
-Auto-configured via `render.yaml`:
-- `DATABASE_URL` - PostgreSQL connection string (auto-populated)
+> At startup the app calls `ensure_streamlit_secrets_file()` to write `.streamlit/secrets.toml` from these variables. If any required key is missing, the login screen lists which ones to supply and the logs emit a `Streamlit OAuth configuration missing required secrets` warning. `render.yaml` marks the keys with `sync: false` so you remember to set them in the dashboard.
 
 ---
 
-**Deployment Status:** Ready for production ✅
+## 4. Configure Google OAuth
 
-**Last Updated:** 2025-10-03 (Phase 5 v0.5.3)
+1. Visit [Google Cloud Console → APIs & Services → Credentials](https://console.cloud.google.com/apis/credentials).
+2. Open your OAuth 2.0 Client ID and add the following:
+   - **Authorized redirect URI**: `https://<service-name>.onrender.com/oauth2callback`
+   - **Authorized JavaScript origin**: `https://<service-name>.onrender.com`
+3. Save changes. If you changed the service name, update the URIs accordingly.
+4. (Optional) Restrict the OAuth consent screen to the admin email domain for tighter control.
+
+> Complete this step before attempting to sign in on Render; otherwise Google will block the callback and your users will be stuck at the login screen.
+
+---
+
+## 5. Understand the Build & Start Commands
+
+Render executes the commands from `render.yaml` every deploy:
+
+- **Build command**
+  ```bash
+  pip install -r requirements.txt
+  ```
+  Installs the project into the managed virtual environment.
+
+- **Start command**
+  ```bash
+  alembic upgrade head && streamlit run streamlit_app.py --server.port $PORT --server.address 0.0.0.0 --server.headless true
+  ```
+  Runs database migrations first, then launches Streamlit from the root-level `streamlit_app.py` entry point (which imports `app.main`).
+
+> If Alembic fails, Render never starts Streamlit and logs will show the stack trace. Fix the migration issue locally, push a new commit, then deploy again.
+
+---
+
+## 6. First Deploy & Verification Checklist
+
+1. **Trigger the initial build** if Render paused waiting for secrets: click **Manual Deploy → Deploy latest commit** after setting environment variables.
+2. **Watch the Logs tab** for these milestones:
+   - Dependency installation completes without errors.
+   - `alembic upgrade head` logs each migration ID.
+   - Streamlit reports `You can now view your Streamlit app`.
+3. Once the service reports “Live”, open the URL. You should see the sign-in card with a Google sign-in button (no missing-secret warning). The logs should contain a `Bootstrapped Streamlit secrets file` entry on successful startup.
+4. **Sign in with a Google account listed in `ADMIN_EMAILS`**. On first login you may be prompted to complete onboarding in-app.
+5. Confirm the admin dashboard renders and no tracebacks appear in the logs.
+
+> If you need fresh sample catalog data, open Render Shell (service → **Shell**) and run:
+> ```bash
+> cd /opt/render/project/src
+> python scripts/seed_catalog.py
+> ```
+> The script skips seeding automatically if data already exists.
+
+---
+
+## 7. Ongoing Operations
+
+- **Manual redeploy**: Use **Manual Deploy → Deploy latest commit** after pushing to `main`.
+- **Clear build cache**: If dependency changes don’t stick, choose **Manual Deploy → Deploy latest commit (Clear build cache)**.
+- **Rotate secrets**: Update the relevant environment variable and redeploy. For cookie secret rotation, users are signed out automatically.
+- **Run ad-hoc commands**: Use Render Shell. Example for Alembic downgrade:
+  ```bash
+  cd /opt/render/project/src
+  alembic downgrade -1
+  ```
+- **Database access**: View credentials under the database resource; use `psql` locally or managed backups for exports.
+
+---
+
+## Troubleshooting Quick Reference
+
+- **`StreamlitAuthError` on sign-in**: One or more `STREAMLIT_AUTH_*` variables missing or typo’d; revisit Section 3.
+- **`ModuleNotFoundError: app`**: Ensure the start command runs `streamlit_app.py` (already configured) or that the repo root contains the `app` package.
+- **Alembic migration failures**: Run the same command locally (`alembic upgrade head`) and fix before redeploying.
+- **Google OAuth redirect mismatch**: Update the URI in Google Cloud Console to match the exact Render domain.
+
+With these steps your Render deployment starts cleanly and stays reproducible: the Blueprint defines infrastructure, environment variables provide secrets, and migrations run on every start to keep the database schema current.
+
+For more context, see `docs/render_deployment_notes.md` (Blueprint deep dive), `RENDER_SECRETS_SETUP.md` (environment-variable mapping), and `docs/oauth_setup_guide.md` (Google Console configuration).

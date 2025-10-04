@@ -86,6 +86,17 @@ pip install "streamlit>=1.42.0" "Authlib>=1.3.2"
 
 ### Step 2: Configure Streamlit Secrets
 
+There are two supported options:
+
+1. **Local development** – edit `.streamlit/secrets.toml` (sample file is
+   tracked in the repo). This is convenient when running on your workstation.
+2. **Deployment environments** – set environment variables using the
+   `STREAMLIT_SECTION__KEY` convention (e.g. `STREAMLIT_AUTH__CLIENT_ID`). During
+   startup `app/core/secrets_bootstrap.ensure_streamlit_secrets_file()` will
+   generate `.streamlit/secrets.toml` from those variables.
+
+#### Option A: Secrets File
+
 Create or update `.streamlit/secrets.toml`:
 
 ```toml
@@ -113,9 +124,10 @@ enable_mock_auth = true         # Enable mock auth toggle in development
 app_env = "development"         # Environment: development, staging, production
 ```
 
-### Step 3: Environment Variables (Optional)
+#### Option B: Environment Variables
 
-You can also configure via environment variables in `.env`:
+Set environment variables in `.env` (for local use) or your hosting provider’s
+dashboard. For Render use double underscores to match Streamlit’s parser.
 
 ```bash
 # Admin Configuration
@@ -124,9 +136,15 @@ ADMIN_EMAILS="admin@example.com,admin2@example.com"
 # Database Configuration  
 DATABASE_URL="sqlite:///./badging_system.db"
 
-# Google OAuth (if not using secrets.toml)
-GOOGLE_CLIENT_ID="your_google_client_id.apps.googleusercontent.com"
-GOOGLE_CLIENT_SECRET="your_google_client_secret"
+# Streamlit native auth (automatically written to secrets.toml on startup)
+STREAMLIT_AUTH__CLIENT_ID="your_google_client_id.apps.googleusercontent.com"
+STREAMLIT_AUTH__CLIENT_SECRET="your_google_client_secret"
+STREAMLIT_AUTH__COOKIE_SECRET="your_32_character_secret_key_here"
+STREAMLIT_AUTH__REDIRECT_URI="http://localhost:8501/oauth2callback"
+STREAMLIT_AUTH__SERVER_METADATA_URL="https://accounts.google.com/.well-known/openid-configuration"
+
+# Legacy fallback supported by the bootstrapper (single underscore)
+STREAMLIT_AUTH_CLIENT_ID="..."
 ```
 
 ### Step 4: Generate Cookie Secret

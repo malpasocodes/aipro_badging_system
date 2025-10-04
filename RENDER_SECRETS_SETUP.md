@@ -1,43 +1,51 @@
-# Render Secrets Configuration Workaround
+# Render Secrets Configuration
 
-## Problem
-Render's Secret Files feature doesn't allow forward slashes in filenames, so `.streamlit/secrets.toml` won't work.
+Streamlit now reads OAuth secrets from either `.streamlit/secrets.toml` **or**
+`STREAMLIT_*` environment variables. On Render we rely on environment variables
+because Secret Files do not allow nested paths. At runtime the app creates
+`.streamlit/secrets.toml` automatically from those variables via
+`app/core/secrets_bootstrap.ensure_streamlit_secrets_file()`.
 
-## Solution
-Use **Streamlit's environment variable support** for secrets instead.
+## Required Environment Variables
+Set the following under **Environment → Environment Variables**. The double
+underscore separates the section (`auth`) from the key.
 
-Streamlit automatically reads secrets from environment variables prefixed with `STREAMLIT_`.
+| Key | Example Value | Notes |
+| --- | --- | --- |
+| `STREAMLIT_AUTH__CLIENT_ID` | `your-client-id.apps.googleusercontent.com` | Google OAuth client ID |
+| `STREAMLIT_AUTH__CLIENT_SECRET` | `xxxxxxxx` | Google OAuth client secret |
+| `STREAMLIT_AUTH__COOKIE_SECRET` | `python -c "import secrets; print(secrets.token_urlsafe(32))"` | 32+ character signing secret |
+| `STREAMLIT_AUTH__REDIRECT_URI` | `https://aipro-badging-system.onrender.com/oauth2callback` | Must match Google console |
+| `STREAMLIT_AUTH__SERVER_METADATA_URL` | `https://accounts.google.com/.well-known/openid-configuration` | Default Google OIDC metadata |
+| `STREAMLIT_GENERAL__DEBUG` | `false` | Optional: toggle debug mode |
+| `STREAMLIT_GENERAL__ENABLE_MOCK_AUTH` | `false` | Optional: disable mock auth in prod |
 
-## Steps for Render Dashboard
+> Legacy single-underscore names (`STREAMLIT_AUTH_CLIENT_ID`, etc.) are still
+> read as a fallback by the bootstrapper, but prefer the double-underscore
+> convention to match Streamlit’s documented mapping.
 
-### In Render Dashboard → Environment → Environment Variables
+## Verification
+After saving the variables:
 
-Add these variables (in addition to the ones already configured):
+1. Trigger **Manual Deploy → Deploy latest commit**.
+2. Check deploy logs for `Bootstrapped Streamlit secrets file` – this confirms
+   the runtime file was generated.
+3. (Optional) Open a Render Shell and run:
+   ```bash
+   cd /opt/render/project/src
+   python - <<'PY'
+   import tomllib
+   from pathlib import Path
+   secrets = tomllib.loads(Path('.streamlit/secrets.toml').read_text())
+   print(secrets['auth'].keys())
+   PY
+   ```
+   You should see the five auth keys listed.
 
-| Key | Value | Notes |
-|-----|-------|-------|
-| `STREAMLIT_AUTH_CLIENT_ID` | `YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com` | Your Google OAuth Client ID |
-| `STREAMLIT_AUTH_CLIENT_SECRET` | `YOUR_GOOGLE_CLIENT_SECRET` | Your Google OAuth Client Secret |
-| `STREAMLIT_AUTH_COOKIE_SECRET` | `YOUR_32_CHARACTER_SECRET` | New cookie secret for production (generate with: `python -c "import secrets; print(secrets.token_urlsafe(32))"`) |
-| `STREAMLIT_AUTH_REDIRECT_URI` | `https://aippro-badging-system.onrender.com/oauth2callback` | Production redirect URI (update with your actual Render URL) |
-| `STREAMLIT_AUTH_SERVER_METADATA_URL` | `https://accounts.google.com/.well-known/openid-configuration` | Google OIDC metadata |
-| `STREAMLIT_GENERAL_DEBUG` | `false` | Disable debug mode in production |
-| `STREAMLIT_GENERAL_ENABLE_MOCK_AUTH` | `false` | Disable mock auth in production |
+If any keys are missing the login page will display which items are absent and
+Log Stream will contain a warning from `app.ui.oauth_auth`.
 
-## How It Works
-
-Streamlit automatically converts environment variables to secrets:
-- `STREAMLIT_AUTH_CLIENT_ID` → `st.secrets["auth"]["client_id"]`
-- `STREAMLIT_AUTH_CLIENT_SECRET` → `st.secrets["auth"]["client_secret"]`  
-- `STREAMLIT_GENERAL_DEBUG` → `st.secrets["general"]["debug"]`
-- etc.
-
-The double underscore `_` separates the section from the key.
-
-## No Code Changes Required!
-
-Your existing code that uses `st.secrets["auth"]["client_id"]` will work automatically - Streamlit reads from environment variables when secrets.toml is not present.
-
-## Reference
-
-Streamlit Documentation: https://docs.streamlit.io/develop/concepts/connections/secrets-management#use-secrets-on-render
+## Helpful References
+- `docs/render_deployment_notes.md`
+- `docs/oauth_setup_guide.md`
+- Streamlit secrets docs: https://docs.streamlit.io/develop/concepts/connections/secrets-management
