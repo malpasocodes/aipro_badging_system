@@ -87,21 +87,3 @@ def render_admin_dashboard(user: User) -> None:
     if st.session_state.get("active_award_mgmt"):
         st.markdown("### 🏆 Award Management")
         render_award_management(user)
-
-    # Current Phase Information
-    st.markdown("---")
-    st.markdown("### ✅ Completed Phases")
-
-    st.success("**Phase 1**: Project Setup & Repository Initialization")
-    st.success("**Phase 2A**: Mock Authentication System")
-    st.success("**Phase 2B**: Real Google OAuth Integration")
-    st.success("**Phase 3**: User Onboarding & Registration")
-    st.success("**Phase 4**: Roles & Approvals Queue")
-    st.success("**Phase 5**: Badge Data Model & Catalog")
-    st.success("**Phase 6**: Earning Logic & Awards ✨")
-
-    st.markdown("### 🚀 Upcoming Phases")
-    st.write("**Phase 7**: Notifications & Audit Trails")
-    st.write("**Phase 8**: Exports & PII Redaction")
-    st.write("**Phase 9**: UX Polish & Accessibility")
-    st.write("**Phase 10**: Deployment & Launch")
