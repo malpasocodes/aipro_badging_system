@@ -19,33 +19,43 @@ def render_student_dashboard(user: User) -> None:
     st.markdown(f"Welcome back, **{user.username}**!")
     st.markdown("---")
 
-    # Student-specific features
-    st.markdown("### 🏅 Your Badge Journey")
+    # Sidebar controls for badge journey
+    with st.sidebar:
+        st.markdown("### 🏅 Your Badge Journey")
 
-    # Request a Badge (NEW in Phase 4)
-    with st.expander("📝 Request a Badge", expanded=False):
-        if st.button("📝 Load Request Form", key="load_request_form"):
-            render_request_form(user)
+        if st.button("📝 Request a Badge", key="btn_request_badge", use_container_width=True):
+            st.session_state.student_active_panel = "request_form"
 
-    # My Requests (NEW in Phase 4)
-    with st.expander("📋 My Badge Requests", expanded=False):
-        if st.button("📋 Load My Requests", key="load_my_requests"):
-            render_user_requests(user)
+        if st.button("📋 My Badge Requests", key="btn_my_requests", use_container_width=True):
+            st.session_state.student_active_panel = "requests"
 
-    # My Badges - NEW in Phase 6
-    with st.expander("🏆 My Badges", expanded=False):
-        if st.button("🏆 Load My Badges", key="load_my_badges"):
-            render_my_badges(user)
+        if st.button("🏆 My Badges", key="btn_my_badges", use_container_width=True):
+            st.session_state.student_active_panel = "my_badges"
 
-    # My Progress - NEW in Phase 6
-    with st.expander("📈 My Progress", expanded=False):
-        if st.button("📈 Load My Progress", key="load_my_progress"):
-            render_my_progress(user)
+        if st.button("📈 My Progress", key="btn_my_progress", use_container_width=True):
+            st.session_state.student_active_panel = "my_progress"
 
-    # Available Badges - Phase 5
-    with st.expander("📚 Browse Badge Catalog", expanded=False):
-        if st.button("📚 Load Badge Catalog", key="load_badge_catalog"):
-            render_catalog_browser(user)
+        if st.button("📚 Browse Badge Catalog", key="btn_badge_catalog", use_container_width=True):
+            st.session_state.student_active_panel = "catalog"
+
+    # Render selected panel
+    active_panel = st.session_state.get("student_active_panel")
+
+    if active_panel == "request_form":
+        st.markdown("### 📝 Request a Badge")
+        render_request_form(user)
+    elif active_panel == "requests":
+        st.markdown("### 📋 My Badge Requests")
+        render_user_requests(user)
+    elif active_panel == "my_badges":
+        st.markdown("### 🏆 My Badges")
+        render_my_badges(user)
+    elif active_panel == "my_progress":
+        st.markdown("### 📈 My Progress")
+        render_my_progress(user)
+    elif active_panel == "catalog":
+        st.markdown("### 📚 Browse Badge Catalog")
+        render_catalog_browser(user)
 
     # Getting Started Guide
     st.markdown("---")
