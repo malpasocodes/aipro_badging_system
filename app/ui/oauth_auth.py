@@ -2,12 +2,38 @@
 
 
 import streamlit as st
+from streamlit.errors import StreamlitAuthError
 
 from app.core.logging import get_logger
 from app.models.user import User
 from app.services.oauth import OAuth2MockService, get_oauth_service
 
+REQUIRED_OAUTH_SECRETS = (
+    "client_id",
+    "client_secret",
+    "cookie_secret",
+    "redirect_uri",
+    "server_metadata_url",
+)
+
 logger = get_logger(__name__)
+
+
+def _get_missing_oauth_config_keys() -> list[str]:
+    """Return required OAuth secret keys that are missing or empty."""
+    if not hasattr(st, "secrets"):
+        return list(REQUIRED_OAUTH_SECRETS)
+
+    try:
+        auth_section = st.secrets["auth"]
+    except KeyError:
+        return list(REQUIRED_OAUTH_SECRETS)
+    except Exception as exc:  # pragma: no cover - defensive logging only
+        logger.warning("Unable to read Streamlit auth secrets", error=str(exc))
+        return list(REQUIRED_OAUTH_SECRETS)
+
+    missing_keys = [key for key in REQUIRED_OAUTH_SECRETS if not auth_section.get(key)]
+    return missing_keys
 
 
 def render_oauth_signin() -> None:
@@ -40,9 +66,34 @@ def render_oauth_signin() -> None:
 
         with col1:
             st.markdown("#### Sign In")
-            if hasattr(st, 'login'):
+            missing_config = _get_missing_oauth_config_keys()
+
+            if missing_config:
+                logger.warning(
+                    "Streamlit OAuth configuration missing required secrets",
+                    missing_keys=sorted(missing_config),
+                )
+                st.error(
+                    "⚙️ Native OAuth is not configured for this deployment. "
+                    "Missing secrets: " + ", ".join(sorted(missing_config))
+                )
+                st.info(
+                    "Set the corresponding `STREAMLIT_AUTH_*` environment variables "
+                    "(see `RENDER_SECRETS_SETUP.md`) and redeploy."
+                )
+            elif hasattr(st, 'login'):
                 if st.button("🚀 Sign in with Google", type="primary", use_container_width=True, key="google_signin"):
-                    st.login()
+                    try:
+                        st.login()
+                    except StreamlitAuthError as exc:
+                        logger.error(
+                            "Streamlit OAuth login failed due to configuration",
+                            error=str(exc),
+                        )
+                        st.error(
+                            "Authentication provider rejected the request. "
+                            "Please verify Streamlit auth secrets and try again."
+                        )
             else:
                 st.error("⚠️ Streamlit OAuth not available. Please ensure Streamlit 1.42+ is installed.")
                 st.code("pip install streamlit>=1.42.0 Authlib>=1.3.2")
