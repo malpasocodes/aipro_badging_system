@@ -37,7 +37,7 @@
   - Capstones: create, get, list, update, delete, toggle_active
   - Hierarchy queries: get_program_hierarchy, get_skill_hierarchy, get_full_catalog
 - ✅ Authorization checks: Admin-only for all CRUD operations
-- ✅ Validation: Parent existence, no orphaned deletes, title uniqueness
+- ✅ Validation: Parent existence, no orphaned deletes (cascade clean-up), title uniqueness
 - ✅ Complete audit logging for all operations
 - ✅ Updated `RequestService` for Phase 5 integration
   - Added `mini_badge_id` parameter (Phase 5 preferred)
@@ -84,7 +84,7 @@
 - ✅ **10 Integration Tests** (`tests/integration/test_catalog_integration.py`)
   - Complete hierarchy creation and queries
   - Cascade deactivation behavior (no cascade, manual control)
-  - Delete protection (cannot delete with children)
+  - Program deletion cascades to child entities and related records
   - End-to-end: create badge → student requests → validation
   - Inactive badge request rejection
   - Duplicate request prevention by `mini_badge_id`
@@ -191,6 +191,10 @@
   - Empty string: "Either badge_name or mini_badge_id is required"
   - Whitespace only: "Badge name is required" (caught by strip logic)
 - **Status:** ✅ Resolved
+
+## Maintenance Updates
+
+- **2025-10-05:** Program deletion now cascades through skills, mini-badges, capstones, related requests, and awards with detailed audit context (`app/services/catalog_service.py:197`). Admin confirmation dialog highlights the cascade (`app/ui/catalog_management.py:182`), and regression coverage ensures dependent data is removed (`tests/unit/test_catalog_service.py:262`).
 
 ## Lessons Learned
 

@@ -4,10 +4,11 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
+from sqlalchemy import or_
 from sqlmodel import Session, select
 
 from app.core.database import get_engine
-from app.models import Capstone, MiniBadge, Program, Skill, UserRole
+from app.models import Award, Capstone, MiniBadge, Program, Request, Skill, UserRole
 
 
 class CatalogError(Exception):
@@ -209,28 +210,73 @@ class CatalogService:
             if not program:
                 raise NotFoundError(f"Program {program_id} not found")
 
-            # Check for dependencies (skills, capstones)
+            program_title = program.title
+            program_id_value = program.id
+
             skills = session.exec(select(Skill).where(Skill.program_id == program_id)).all()
+            skill_ids = [skill.id for skill in skills]
+
+            mini_badges: list[MiniBadge] = []
+            if skill_ids:
+                mini_badges = session.exec(
+                    select(MiniBadge).where(MiniBadge.skill_id.in_(skill_ids))
+                ).all()
+            mini_badge_ids = [badge.id for badge in mini_badges]
+
             capstones = session.exec(select(Capstone).where(Capstone.program_id == program_id)).all()
 
-            if skills or capstones:
-                raise ValidationError(
-                    f"Cannot delete program with {len(skills)} skills and {len(capstones)} capstones. "
-                    "Deactivate instead or delete children first."
-                )
+            requests: list[Request] = []
+            if mini_badge_ids:
+                requests = session.exec(
+                    select(Request).where(Request.mini_badge_id.in_(mini_badge_ids))
+                ).all()
 
-            # Audit log
+            award_filters = [Award.program_id == program_id]
+            if skill_ids:
+                award_filters.append(Award.skill_id.in_(skill_ids))
+            if mini_badge_ids:
+                award_filters.append(Award.mini_badge_id.in_(mini_badge_ids))
+
+            awards: list[Award] = []
+            if award_filters:
+                awards = session.exec(
+                    select(Award).where(or_(*award_filters))
+                ).all()
+
+            # Delete dependent records (awards/requests first for FK integrity)
+            for award in awards:
+                session.delete(award)
+
+            for request in requests:
+                session.delete(request)
+
+            for mini_badge in mini_badges:
+                session.delete(mini_badge)
+
+            for skill in skills:
+                session.delete(skill)
+
+            for capstone in capstones:
+                session.delete(capstone)
+
+            session.delete(program)
+            session.commit()
+
+            # Audit log with cascade context
             self.audit_service.log_action(
                 actor_user_id=actor_id,
                 action="delete_program",
                 entity="program",
-                entity_id=program.id,
-                context_data={"title": program.title},
+                entity_id=program_id_value,
+                context_data={
+                    "title": program_title,
+                    "skills_deleted": len(skills),
+                    "mini_badges_deleted": len(mini_badges),
+                    "capstones_deleted": len(capstones),
+                    "requests_deleted": len(requests),
+                    "awards_deleted": len(awards),
+                },
             )
-
-            # Hard delete
-            session.delete(program)
-            session.commit()
 
     # ==================== SKILL OPERATIONS ====================
 

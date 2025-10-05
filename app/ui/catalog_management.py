@@ -188,31 +188,36 @@ def show_delete_program_modal(user: User, program: Program) -> None:
     skills = catalog_service.list_skills(program_id=program.id, include_inactive=True)
     capstones = catalog_service.list_capstones(program_id=program.id, include_inactive=True)
 
-    if skills or capstones:
-        st.warning(f"⚠️ This program has {len(skills)} skills and {len(capstones)} capstones.")
-        st.markdown("**Delete all children first, or deactivate instead.**")
+    mini_badge_count = 0
+    for skill in skills:
+        badges = catalog_service.list_mini_badges(skill_id=skill.id, include_inactive=True)
+        mini_badge_count += len(badges)
 
-        if st.button("Close", use_container_width=True):
-            st.session_state[f"delete_program_{program.id}"] = False
-            st.rerun()
-    else:
-        st.warning(f"⚠️ Delete **{program.title}**? This cannot be undone.")
+    st.warning(f"⚠️ Delete **{program.title}**? This cannot be undone.")
 
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("Delete", type="primary", use_container_width=True):
-                try:
-                    catalog_service.delete_program(program.id, user.id, user.role)
-                    st.success(f"🗑️ Deleted: {program.title}")
-                    st.session_state[f"delete_program_{program.id}"] = False
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Error: {e}")
+    st.caption(
+        "This will also remove "
+        f"{len(skills)} skill{'s' if len(skills) != 1 else ''}, "
+        f"{mini_badge_count} mini-badge{'s' if mini_badge_count != 1 else ''}, "
+        f"and {len(capstones)} capstone{'s' if len(capstones) != 1 else ''}."
+    )
+    st.caption("Related awards and pending requests tied to these badges will be deleted as well.")
 
-        with col2:
-            if st.button("Cancel", use_container_width=True):
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("Delete Program", type="primary", use_container_width=True):
+            try:
+                catalog_service.delete_program(program.id, user.id, user.role)
+                st.success(f"🗑️ Deleted: {program.title}")
                 st.session_state[f"delete_program_{program.id}"] = False
                 st.rerun()
+            except Exception as e:
+                st.error(f"Error: {e}")
+
+    with col2:
+        if st.button("Cancel", use_container_width=True):
+            st.session_state[f"delete_program_{program.id}"] = False
+            st.rerun()
 
 
 # ==================== SKILLS TAB ====================

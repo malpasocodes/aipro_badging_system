@@ -4,7 +4,9 @@ from uuid import uuid4
 
 import pytest
 
-from app.models import UserRole
+from sqlmodel import Session, select
+
+from app.models import Award, AwardType, Request, UserRole
 from app.services.catalog_service import (
     AuthorizationError,
     NotFoundError,
@@ -257,24 +259,84 @@ def test_delete_program_success(catalog_service, admin_id):
     assert retrieved is None
 
 
-def test_delete_program_with_skills_fails(catalog_service, admin_id):
-    """Test program deletion fails if skills exist."""
+def test_delete_program_cascades_children_and_related_data(catalog_service, admin_id, test_session):
+    """Deleting a program removes nested entities and related requests/awards."""
     program = catalog_service.create_program(
-        title="Test Program",
-        description=None,
-        actor_id=admin_id,
-        actor_role=UserRole.ADMIN,
-    )
-    catalog_service.create_skill(
-        program_id=program.id,
-        title="Test Skill",
+        title="Cascade Program",
         description=None,
         actor_id=admin_id,
         actor_role=UserRole.ADMIN,
     )
 
-    with pytest.raises(ValidationError, match="Cannot delete program"):
-        catalog_service.delete_program(program.id, admin_id, UserRole.ADMIN)
+    skill = catalog_service.create_skill(
+        program_id=program.id,
+        title="Cascade Skill",
+        description=None,
+        actor_id=admin_id,
+        actor_role=UserRole.ADMIN,
+    )
+
+    mini_badge = catalog_service.create_mini_badge(
+        skill_id=skill.id,
+        title="Cascade Badge",
+        description=None,
+        actor_id=admin_id,
+        actor_role=UserRole.ADMIN,
+    )
+
+    capstone = catalog_service.create_capstone(
+        program_id=program.id,
+        title="Cascade Capstone",
+        description=None,
+        is_required=True,
+        actor_id=admin_id,
+        actor_role=UserRole.ADMIN,
+    )
+
+    # Related request and awards
+    request = Request(
+        user_id=admin_id,
+        mini_badge_id=mini_badge.id,
+        badge_name="Cascade Badge",
+    )
+    award_badge = Award(
+        user_id=admin_id,
+        award_type=AwardType.MINI_BADGE,
+        mini_badge_id=mini_badge.id,
+    )
+    award_skill = Award(
+        user_id=admin_id,
+        award_type=AwardType.SKILL,
+        skill_id=skill.id,
+    )
+    award_program = Award(
+        user_id=admin_id,
+        award_type=AwardType.PROGRAM,
+        program_id=program.id,
+    )
+
+    test_session.add_all([request, award_badge, award_skill, award_program])
+    test_session.commit()
+
+    request_id = request.id
+    award_badge_id = award_badge.id
+    award_skill_id = award_skill.id
+    award_program_id = award_program.id
+
+    catalog_service.delete_program(program.id, admin_id, UserRole.ADMIN)
+
+    # Program and its entities removed
+    assert catalog_service.get_program(program.id) is None
+    assert catalog_service.get_skill(skill.id) is None
+    assert catalog_service.get_mini_badge(mini_badge.id) is None
+    assert catalog_service.get_capstone(capstone.id) is None
+
+    # Related requests and awards removed
+    with Session(catalog_service.engine) as session:
+        assert session.exec(select(Request).where(Request.id == request_id)).first() is None
+        assert session.exec(select(Award).where(Award.id == award_badge_id)).first() is None
+        assert session.exec(select(Award).where(Award.id == award_skill_id)).first() is None
+        assert session.exec(select(Award).where(Award.id == award_program_id)).first() is None
 
 
 # ==================== SKILL TESTS ====================
