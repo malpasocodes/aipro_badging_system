@@ -60,6 +60,9 @@ def render_programs_tab(user: User) -> None:
     # Display programs in a table-like format
     for program in programs:
         with st.container():
+            edit_program_flag = f"edit_program_modal_{program.id}"
+            delete_program_flag = f"delete_program_modal_{program.id}"
+
             col1, col2, col3, col4 = st.columns([3, 1, 1, 2])
 
             with col1:
@@ -96,21 +99,21 @@ def render_programs_tab(user: User) -> None:
                 subcol1, subcol2 = st.columns(2)
                 with subcol1:
                     if st.button("✏️ Edit", key=f"edit_prog_{program.id}", use_container_width=True):
-                        st.session_state[f"edit_program_{program.id}"] = True
+                        st.session_state[edit_program_flag] = True
                         st.rerun()
                 with subcol2:
                     if st.button("🗑️ Delete", key=f"delete_prog_{program.id}", use_container_width=True):
-                        st.session_state[f"delete_program_{program.id}"] = True
+                        st.session_state[delete_program_flag] = True
                         st.rerun()
 
             st.divider()
 
         # Show edit modal
-        if st.session_state.get(f"edit_program_{program.id}"):
+        if st.session_state.get(edit_program_flag):
             show_edit_program_modal(user, program)
 
         # Show delete confirmation
-        if st.session_state.get(f"delete_program_{program.id}"):
+        if st.session_state.get(delete_program_flag):
             show_delete_program_modal(user, program)
 
 
@@ -152,6 +155,7 @@ def show_add_program_modal(user: User) -> None:
 def show_edit_program_modal(user: User, program: Program) -> None:
     """Modal for editing program."""
     catalog_service = get_catalog_service()
+    edit_flag = f"edit_program_modal_{program.id}"
 
     title = st.text_input("Program Title *", value=program.title, max_chars=200, key=f"edit_title_{program.id}")
     description = st.text_area("Description", value=program.description or "", key=f"edit_desc_{program.id}")
@@ -168,14 +172,14 @@ def show_edit_program_modal(user: User, program: Program) -> None:
                     actor_role=user.role,
                 )
                 st.success(f"✅ Updated: {updated.title}")
-                st.session_state[f"edit_program_{program.id}"] = False
+                st.session_state[edit_flag] = False
                 st.rerun()
             except Exception as e:
                 st.error(f"Error: {e}")
 
     with col2:
         if st.button("Cancel", use_container_width=True):
-            st.session_state[f"edit_program_{program.id}"] = False
+            st.session_state[edit_flag] = False
             st.rerun()
 
 
@@ -183,6 +187,7 @@ def show_edit_program_modal(user: User, program: Program) -> None:
 def show_delete_program_modal(user: User, program: Program) -> None:
     """Modal for deleting program."""
     catalog_service = get_catalog_service()
+    delete_flag = f"delete_program_modal_{program.id}"
 
     # Check dependencies
     skills = catalog_service.list_skills(program_id=program.id, include_inactive=True)
@@ -209,14 +214,14 @@ def show_delete_program_modal(user: User, program: Program) -> None:
             try:
                 catalog_service.delete_program(program.id, user.id, user.role)
                 st.success(f"🗑️ Deleted: {program.title}")
-                st.session_state[f"delete_program_{program.id}"] = False
+                st.session_state[delete_flag] = False
                 st.rerun()
             except Exception as e:
                 st.error(f"Error: {e}")
 
     with col2:
         if st.button("Cancel", use_container_width=True):
-            st.session_state[f"delete_program_{program.id}"] = False
+            st.session_state[delete_flag] = False
             st.rerun()
 
 
@@ -263,6 +268,9 @@ def render_skills_tab(user: User) -> None:
         program = catalog_service.get_program(skill.program_id)
 
         with st.container():
+            edit_skill_flag = f"edit_skill_modal_{skill.id}"
+            delete_skill_flag = f"delete_skill_modal_{skill.id}"
+
             col1, col2, col3, col4 = st.columns([3, 1, 1, 2])
 
             with col1:
@@ -290,21 +298,21 @@ def render_skills_tab(user: User) -> None:
                 subcol1, subcol2 = st.columns(2)
                 with subcol1:
                     if st.button("✏️ Edit", key=f"edit_skill_{skill.id}", use_container_width=True):
-                        st.session_state[f"edit_skill_{skill.id}"] = True
+                        st.session_state[edit_skill_flag] = True
                         st.rerun()
                 with subcol2:
                     if st.button("🗑️ Delete", key=f"delete_skill_{skill.id}", use_container_width=True):
-                        st.session_state[f"delete_skill_{skill.id}"] = True
+                        st.session_state[delete_skill_flag] = True
                         st.rerun()
 
             st.divider()
 
         # Show edit modal
-        if st.session_state.get(f"edit_skill_{skill.id}"):
+        if st.session_state.get(edit_skill_flag):
             show_edit_skill_modal(user, skill, programs)
 
         # Show delete modal
-        if st.session_state.get(f"delete_skill_{skill.id}"):
+        if st.session_state.get(delete_skill_flag):
             show_delete_skill_modal(user, skill)
 
 
@@ -363,6 +371,7 @@ def show_add_skill_modal(user: User, programs: list[Program]) -> None:
 def show_edit_skill_modal(user: User, skill: Skill, programs: list[Program]) -> None:
     """Modal for editing skill."""
     catalog_service = get_catalog_service()
+    edit_flag = f"edit_skill_modal_{skill.id}"
 
     title = st.text_input("Skill Title *", value=skill.title, max_chars=200, key=f"edit_skill_title_{skill.id}")
     description = st.text_area("Description", value=skill.description or "", key=f"edit_skill_desc_{skill.id}")
@@ -379,14 +388,14 @@ def show_edit_skill_modal(user: User, skill: Skill, programs: list[Program]) -> 
                     actor_role=user.role,
                 )
                 st.success(f"✅ Updated: {title}")
-                st.session_state[f"edit_skill_{skill.id}"] = False
+                st.session_state[edit_flag] = False
                 st.rerun()
             except Exception as e:
                 st.error(f"Error: {e}")
 
     with col2:
         if st.button("Cancel", use_container_width=True):
-            st.session_state[f"edit_skill_{skill.id}"] = False
+            st.session_state[edit_flag] = False
             st.rerun()
 
 
@@ -394,6 +403,7 @@ def show_edit_skill_modal(user: User, skill: Skill, programs: list[Program]) -> 
 def show_delete_skill_modal(user: User, skill: Skill) -> None:
     """Modal for deleting skill."""
     catalog_service = get_catalog_service()
+    delete_flag = f"delete_skill_modal_{skill.id}"
 
     # Check dependencies
     mini_badges = catalog_service.list_mini_badges(skill_id=skill.id, include_inactive=True)
@@ -403,7 +413,7 @@ def show_delete_skill_modal(user: User, skill: Skill) -> None:
         st.markdown("**Delete all mini-badges first, or deactivate instead.**")
 
         if st.button("Close", use_container_width=True):
-            st.session_state[f"delete_skill_{skill.id}"] = False
+            st.session_state[delete_flag] = False
             st.rerun()
     else:
         st.warning(f"⚠️ Delete **{skill.title}**? This cannot be undone.")
@@ -414,15 +424,15 @@ def show_delete_skill_modal(user: User, skill: Skill) -> None:
                 try:
                     catalog_service.delete_skill(skill.id, user.id, user.role)
                     st.success(f"🗑️ Deleted: {skill.title}")
-                    st.session_state[f"delete_skill_{skill.id}"] = False
+                    st.session_state[delete_flag] = False
                     st.rerun()
                 except Exception as e:
                     st.error(f"Error: {e}")
 
-        with col2:
-            if st.button("Cancel", use_container_width=True):
-                st.session_state[f"delete_skill_{skill.id}"] = False
-                st.rerun()
+    with col2:
+        if st.button("Cancel", use_container_width=True):
+            st.session_state[delete_flag] = False
+            st.rerun()
 
 
 # ==================== MINI-BADGES TAB ====================
@@ -482,6 +492,8 @@ def render_mini_badges_tab(user: User) -> None:
     for badge in mini_badges:
         skill = catalog_service.get_skill(badge.skill_id)
         program = catalog_service.get_program(skill.program_id) if skill else None
+        edit_badge_flag = f"edit_badge_modal_{badge.id}"
+        delete_badge_flag = f"delete_badge_modal_{badge.id}"
 
         with st.container():
             col1, col2, col3 = st.columns([4, 1, 2])
@@ -506,21 +518,21 @@ def render_mini_badges_tab(user: User) -> None:
                 subcol1, subcol2 = st.columns(2)
                 with subcol1:
                     if st.button("✏️ Edit", key=f"edit_badge_{badge.id}", use_container_width=True):
-                        st.session_state[f"edit_badge_{badge.id}"] = True
+                        st.session_state[edit_badge_flag] = True
                         st.rerun()
                 with subcol2:
                     if st.button("🗑️ Delete", key=f"delete_badge_{badge.id}", use_container_width=True):
-                        st.session_state[f"delete_badge_{badge.id}"] = True
+                        st.session_state[delete_badge_flag] = True
                         st.rerun()
 
             st.divider()
 
         # Show edit modal
-        if st.session_state.get(f"edit_badge_{badge.id}"):
+        if st.session_state.get(edit_badge_flag):
             show_edit_mini_badge_modal(user, badge)
 
         # Show delete modal
-        if st.session_state.get(f"delete_badge_{badge.id}"):
+        if st.session_state.get(delete_badge_flag):
             show_delete_mini_badge_modal(user, badge)
 
 
@@ -595,6 +607,7 @@ def show_add_mini_badge_modal(user: User, programs: list[Program]) -> None:
 def show_edit_mini_badge_modal(user: User, badge: MiniBadge) -> None:
     """Modal for editing mini-badge."""
     catalog_service = get_catalog_service()
+    edit_flag = f"edit_badge_modal_{badge.id}"
 
     title = st.text_input("Title *", value=badge.title, max_chars=200, key=f"edit_badge_title_{badge.id}")
     description = st.text_area("Description", value=badge.description or "", key=f"edit_badge_desc_{badge.id}")
@@ -611,14 +624,14 @@ def show_edit_mini_badge_modal(user: User, badge: MiniBadge) -> None:
                     actor_role=user.role,
                 )
                 st.success(f"✅ Updated: {title}")
-                st.session_state[f"edit_badge_{badge.id}"] = False
+                st.session_state[edit_flag] = False
                 st.rerun()
             except Exception as e:
                 st.error(f"Error: {e}")
 
     with col2:
         if st.button("Cancel", use_container_width=True):
-            st.session_state[f"edit_badge_{badge.id}"] = False
+            st.session_state[edit_flag] = False
             st.rerun()
 
 
@@ -626,6 +639,7 @@ def show_edit_mini_badge_modal(user: User, badge: MiniBadge) -> None:
 def show_delete_mini_badge_modal(user: User, badge: MiniBadge) -> None:
     """Modal for deleting mini-badge."""
     catalog_service = get_catalog_service()
+    delete_flag = f"delete_badge_modal_{badge.id}"
 
     st.warning(f"⚠️ Delete **{badge.title}**? This cannot be undone.")
     st.caption("Note: Cannot delete if any requests reference this badge.")
@@ -636,14 +650,14 @@ def show_delete_mini_badge_modal(user: User, badge: MiniBadge) -> None:
             try:
                 catalog_service.delete_mini_badge(badge.id, user.id, user.role)
                 st.success(f"🗑️ Deleted: {badge.title}")
-                st.session_state[f"delete_badge_{badge.id}"] = False
+                st.session_state[delete_flag] = False
                 st.rerun()
             except Exception as e:
                 st.error(f"Error: {e}")
 
     with col2:
         if st.button("Cancel", use_container_width=True):
-            st.session_state[f"delete_badge_{badge.id}"] = False
+            st.session_state[delete_flag] = False
             st.rerun()
 
 
@@ -688,6 +702,8 @@ def render_capstones_tab(user: User) -> None:
     # Display capstones
     for capstone in capstones:
         program = catalog_service.get_program(capstone.program_id)
+        edit_capstone_flag = f"edit_capstone_modal_{capstone.id}"
+        delete_capstone_flag = f"delete_capstone_modal_{capstone.id}"
 
         with st.container():
             col1, col2, col3 = st.columns([4, 1, 2])
@@ -713,21 +729,21 @@ def render_capstones_tab(user: User) -> None:
                 subcol1, subcol2 = st.columns(2)
                 with subcol1:
                     if st.button("✏️ Edit", key=f"edit_capstone_{capstone.id}", use_container_width=True):
-                        st.session_state[f"edit_capstone_{capstone.id}"] = True
+                        st.session_state[edit_capstone_flag] = True
                         st.rerun()
                 with subcol2:
                     if st.button("🗑️ Delete", key=f"delete_capstone_{capstone.id}", use_container_width=True):
-                        st.session_state[f"delete_capstone_{capstone.id}"] = True
+                        st.session_state[delete_capstone_flag] = True
                         st.rerun()
 
             st.divider()
 
         # Show edit modal
-        if st.session_state.get(f"edit_capstone_{capstone.id}"):
+        if st.session_state.get(edit_capstone_flag):
             show_edit_capstone_modal(user, capstone)
 
         # Show delete modal
-        if st.session_state.get(f"delete_capstone_{capstone.id}"):
+        if st.session_state.get(delete_capstone_flag):
             show_delete_capstone_modal(user, capstone)
 
 
@@ -787,6 +803,7 @@ def show_add_capstone_modal(user: User, programs: list[Program]) -> None:
 def show_edit_capstone_modal(user: User, capstone: Capstone) -> None:
     """Modal for editing capstone."""
     catalog_service = get_catalog_service()
+    edit_flag = f"edit_capstone_modal_{capstone.id}"
 
     title = st.text_input("Title *", value=capstone.title, max_chars=200, key=f"edit_capstone_title_{capstone.id}")
     description = st.text_area("Description", value=capstone.description or "", key=f"edit_capstone_desc_{capstone.id}")
@@ -805,14 +822,14 @@ def show_edit_capstone_modal(user: User, capstone: Capstone) -> None:
                     actor_role=user.role,
                 )
                 st.success(f"✅ Updated: {title}")
-                st.session_state[f"edit_capstone_{capstone.id}"] = False
+                st.session_state[edit_flag] = False
                 st.rerun()
             except Exception as e:
                 st.error(f"Error: {e}")
 
     with col2:
         if st.button("Cancel", use_container_width=True):
-            st.session_state[f"edit_capstone_{capstone.id}"] = False
+            st.session_state[edit_flag] = False
             st.rerun()
 
 
@@ -820,6 +837,7 @@ def show_edit_capstone_modal(user: User, capstone: Capstone) -> None:
 def show_delete_capstone_modal(user: User, capstone: Capstone) -> None:
     """Modal for deleting capstone."""
     catalog_service = get_catalog_service()
+    delete_flag = f"delete_capstone_modal_{capstone.id}"
 
     st.warning(f"⚠️ Delete **{capstone.title}**? This cannot be undone.")
 
@@ -829,12 +847,12 @@ def show_delete_capstone_modal(user: User, capstone: Capstone) -> None:
             try:
                 catalog_service.delete_capstone(capstone.id, user.id, user.role)
                 st.success(f"🗑️ Deleted: {capstone.title}")
-                st.session_state[f"delete_capstone_{capstone.id}"] = False
+                st.session_state[delete_flag] = False
                 st.rerun()
             except Exception as e:
                 st.error(f"Error: {e}")
 
     with col2:
         if st.button("Cancel", use_container_width=True):
-            st.session_state[f"delete_capstone_{capstone.id}"] = False
+            st.session_state[delete_flag] = False
             st.rerun()
