@@ -3,7 +3,7 @@
 
 import streamlit as st
 
-from app.models import Capstone, MiniBadge, Program, Skill, User
+from app.models import Capstone, MiniBadge, Program, ProgressBadge, Skill, User
 from app.services import get_catalog_service
 
 
@@ -14,10 +14,16 @@ def render_catalog_management(user: User) -> None:
         return
 
     st.markdown("## 📚 Badge Catalog Management")
-    st.markdown("Manage programs, skills, mini-badges, and capstones.")
+    st.markdown("Manage programs, skills, mini-badges, progress badges, and capstones.")
 
     # Create tabs for each entity type
-    tabs = st.tabs(["📖 Programs", "🎯 Skills", "🏅 Mini-badges", "🎓 Capstones"])
+    tabs = st.tabs([
+        "📖 Programs",
+        "🎯 Skills",
+        "🏅 Mini-badges",
+        "🚀 Progress Badges",
+        "🎓 Capstones",
+    ])
 
     with tabs[0]:
         render_programs_tab(user)
@@ -29,6 +35,9 @@ def render_catalog_management(user: User) -> None:
         render_mini_badges_tab(user)
 
     with tabs[3]:
+        render_progress_badges_tab(user)
+
+    with tabs[4]:
         render_capstones_tab(user)
 
 
@@ -74,7 +83,11 @@ def render_programs_tab(user: User) -> None:
             with col2:
                 # Count children
                 skills = catalog_service.list_skills(program_id=program.id, include_inactive=True)
-                st.caption(f"📊 {len(skills)} skills")
+                progress_badges = catalog_service.list_progress_badges(
+                    program_id=program.id,
+                    include_inactive=True,
+                )
+                st.caption(f"📊 {len(skills)} skills | 🚀 {len(progress_badges)} progress badges")
 
             with col3:
                 # Toggle active/inactive
@@ -192,11 +205,14 @@ def show_delete_program_modal(user: User, program: Program) -> None:
     # Check dependencies
     skills = catalog_service.list_skills(program_id=program.id, include_inactive=True)
     capstones = catalog_service.list_capstones(program_id=program.id, include_inactive=True)
+    progress_badges = catalog_service.list_progress_badges(program_id=program.id, include_inactive=True)
 
     mini_badge_count = 0
     for skill in skills:
         badges = catalog_service.list_mini_badges(skill_id=skill.id, include_inactive=True)
         mini_badge_count += len(badges)
+
+    progress_badge_count = len(progress_badges)
 
     st.warning(f"⚠️ Delete **{program.title}**? This cannot be undone.")
 
@@ -204,6 +220,7 @@ def show_delete_program_modal(user: User, program: Program) -> None:
         "This will also remove "
         f"{len(skills)} skill{'s' if len(skills) != 1 else ''}, "
         f"{mini_badge_count} mini-badge{'s' if mini_badge_count != 1 else ''}, "
+        f"{progress_badge_count} progress badge{'s' if progress_badge_count != 1 else ''}, "
         f"and {len(capstones)} capstone{'s' if len(capstones) != 1 else ''}."
     )
     st.caption("Related awards and pending requests tied to these badges will be deleted as well.")
@@ -654,6 +671,215 @@ def show_delete_mini_badge_modal(user: User, badge: MiniBadge) -> None:
                 st.rerun()
             except Exception as e:
                 st.error(f"Error: {e}")
+
+    with col2:
+        if st.button("Cancel", use_container_width=True):
+            st.session_state[delete_flag] = False
+            st.rerun()
+
+
+# ==================== CAPSTONES TAB ====================
+
+
+def render_progress_badges_tab(user: User) -> None:
+    """Render progress badges management tab."""
+    st.markdown("### Progress Badges")
+
+    catalog_service = get_catalog_service()
+    programs = catalog_service.list_programs(include_inactive=True)
+
+    if not programs:
+        st.info("Create a program first before adding progress badges.")
+        return
+
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        selected_program = st.selectbox(
+            "Filter by Program",
+            options=[None] + programs,
+            format_func=lambda p: "All Programs" if p is None else p.title,
+            key="progress_badges_program_filter",
+        )
+
+    with col2:
+        if st.button("➕ Add Progress Badge", key="add_progress_badge_btn", use_container_width=True):
+            st.session_state["show_add_progress_badge_modal"] = True
+
+    if st.session_state.get("show_add_progress_badge_modal"):
+        show_add_progress_badge_modal(user, programs)
+
+    program_id = selected_program.id if selected_program else None
+    progress_badges = catalog_service.list_progress_badges(program_id=program_id, include_inactive=True)
+
+    if not progress_badges:
+        st.info("No progress badges yet. Click 'Add Progress Badge' to create one.")
+        return
+
+    for badge in progress_badges:
+        program = catalog_service.get_program(badge.program_id)
+        edit_flag = f"edit_progress_badge_modal_{badge.id}"
+        delete_flag = f"delete_progress_badge_modal_{badge.id}"
+
+        with st.container():
+            col1, col2, col3 = st.columns([4, 1, 2])
+
+            with col1:
+                status_icon = "✅" if badge.is_active else "⏸️"
+                st.markdown(f"**{badge.icon} {status_icon} {badge.title}**")
+                st.caption(f"Program: {program.title if program else 'Unknown'}")
+                if badge.description:
+                    st.caption(badge.description)
+
+            with col2:
+                if badge.is_active:
+                    if st.button("Deactivate", key=f"deactivate_progress_badge_{badge.id}", use_container_width=True):
+                        catalog_service.toggle_progress_badge_active(badge.id, False, user.id, user.role)
+                        st.rerun()
+                else:
+                    if st.button("Activate", key=f"activate_progress_badge_{badge.id}", use_container_width=True):
+                        catalog_service.toggle_progress_badge_active(badge.id, True, user.id, user.role)
+                        st.rerun()
+
+            with col3:
+                col_a, col_b = st.columns(2)
+                with col_a:
+                    if st.button("✏️ Edit", key=f"edit_progress_badge_{badge.id}", use_container_width=True):
+                        st.session_state[edit_flag] = True
+                        st.rerun()
+                with col_b:
+                    if st.button("🗑️ Delete", key=f"delete_progress_badge_{badge.id}", use_container_width=True):
+                        st.session_state[delete_flag] = True
+                        st.rerun()
+
+            st.divider()
+
+        if st.session_state.get(edit_flag):
+            show_edit_progress_badge_modal(user, badge, programs)
+
+        if st.session_state.get(delete_flag):
+            show_delete_progress_badge_modal(user, badge)
+
+
+@st.dialog("Add New Progress Badge")
+def show_add_progress_badge_modal(user: User, programs: list[Program]) -> None:
+    """Modal for adding new progress badge."""
+    catalog_service = get_catalog_service()
+
+    active_programs = [p for p in programs if p.is_active]
+    if not active_programs:
+        st.error("No active programs available. Activate a program first.")
+        return
+
+    program = st.selectbox(
+        "Program *",
+        options=active_programs,
+        format_func=lambda p: p.title,
+        key="new_progress_badge_program",
+    )
+
+    title = st.text_input("Progress Badge Title *", max_chars=200, key="new_progress_badge_title")
+    icon = st.text_input("Icon", value="🎖️", max_chars=32, help="Emoji or short text shown with the badge", key="new_progress_badge_icon")
+    description = st.text_area("Description", key="new_progress_badge_description")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("Create", type="primary", use_container_width=True):
+            if not title:
+                st.error("Title is required")
+                return
+            if not program:
+                st.error("Program is required")
+                return
+
+            try:
+                progress_badge = catalog_service.create_progress_badge(
+                    program_id=program.id,
+                    title=title,
+                    description=description if description else None,
+                    icon=icon,
+                    actor_id=user.id,
+                    actor_role=user.role,
+                )
+                st.success(f"✅ Created: {progress_badge.title}")
+                st.session_state["show_add_progress_badge_modal"] = False
+                st.rerun()
+            except Exception as exc:
+                st.error(f"Error: {exc}")
+
+    with col2:
+        if st.button("Cancel", use_container_width=True):
+            st.session_state["show_add_progress_badge_modal"] = False
+            st.rerun()
+
+
+@st.dialog("Edit Progress Badge")
+def show_edit_progress_badge_modal(user: User, badge: ProgressBadge, programs: list[Program]) -> None:
+    """Modal for editing progress badge."""
+    catalog_service = get_catalog_service()
+    edit_flag = f"edit_progress_badge_modal_{badge.id}"
+
+    title = st.text_input(
+        "Progress Badge Title *",
+        value=badge.title,
+        max_chars=200,
+        key=f"edit_progress_badge_title_{badge.id}",
+    )
+    icon = st.text_input(
+        "Icon",
+        value=badge.icon,
+        max_chars=32,
+        help="Emoji or short text shown with the badge",
+        key=f"edit_progress_badge_icon_{badge.id}",
+    )
+    description = st.text_area(
+        "Description",
+        value=badge.description or "",
+        key=f"edit_progress_badge_desc_{badge.id}",
+    )
+
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("Save", type="primary", use_container_width=True):
+            try:
+                catalog_service.update_progress_badge(
+                    progress_badge_id=badge.id,
+                    title=title if title != badge.title else None,
+                    description=description if description != (badge.description or "") else None,
+                    icon=icon if icon != badge.icon else None,
+                    actor_id=user.id,
+                    actor_role=user.role,
+                )
+                st.success(f"✅ Updated: {title}")
+                st.session_state[edit_flag] = False
+                st.rerun()
+            except Exception as exc:
+                st.error(f"Error: {exc}")
+
+    with col2:
+        if st.button("Cancel", use_container_width=True):
+            st.session_state[edit_flag] = False
+            st.rerun()
+
+
+@st.dialog("Delete Progress Badge?")
+def show_delete_progress_badge_modal(user: User, badge: ProgressBadge) -> None:
+    """Modal for deleting progress badge."""
+    catalog_service = get_catalog_service()
+    delete_flag = f"delete_progress_badge_modal_{badge.id}"
+
+    st.warning(f"⚠️ Delete **{badge.title}**? This cannot be undone.")
+    st.caption("Progress badge must not have awards. Consider deactivating instead.")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("Delete", type="primary", use_container_width=True):
+            try:
+                catalog_service.delete_progress_badge(badge.id, user.id, user.role)
+                st.success(f"🗑️ Deleted: {badge.title}")
+                st.session_state[delete_flag] = False
+                st.rerun()
+            except Exception as exc:
+                st.error(f"Error: {exc}")
 
     with col2:
         if st.button("Cancel", use_container_width=True):

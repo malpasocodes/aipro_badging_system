@@ -8,7 +8,16 @@ from sqlalchemy import or_
 from sqlmodel import Session, select
 
 from app.core.database import get_engine
-from app.models import Award, Capstone, MiniBadge, Program, Request, Skill, UserRole
+from app.models import (
+    Award,
+    Capstone,
+    MiniBadge,
+    Program,
+    ProgressBadge,
+    Request,
+    Skill,
+    UserRole,
+)
 
 
 class CatalogError(Exception):
@@ -223,6 +232,9 @@ class CatalogService:
                 ).all()
             mini_badge_ids = [badge.id for badge in mini_badges]
 
+            progress_badges = session.exec(
+                select(ProgressBadge).where(ProgressBadge.program_id == program_id)
+            ).all()
             capstones = session.exec(select(Capstone).where(Capstone.program_id == program_id)).all()
 
             requests: list[Request] = []
@@ -236,6 +248,9 @@ class CatalogService:
                 award_filters.append(Award.skill_id.in_(skill_ids))
             if mini_badge_ids:
                 award_filters.append(Award.mini_badge_id.in_(mini_badge_ids))
+            progress_badge_ids = [badge.id for badge in progress_badges]
+            if progress_badge_ids:
+                award_filters.append(Award.progress_badge_id.in_(progress_badge_ids))
 
             awards: list[Award] = []
             if award_filters:
@@ -252,6 +267,9 @@ class CatalogService:
 
             for mini_badge in mini_badges:
                 session.delete(mini_badge)
+
+            for progress_badge in progress_badges:
+                session.delete(progress_badge)
 
             for skill in skills:
                 session.delete(skill)
@@ -272,6 +290,7 @@ class CatalogService:
                     "title": program_title,
                     "skills_deleted": len(skills),
                     "mini_badges_deleted": len(mini_badges),
+                    "progress_badges_deleted": len(progress_badges),
                     "capstones_deleted": len(capstones),
                     "requests_deleted": len(requests),
                     "awards_deleted": len(awards),
@@ -689,6 +708,208 @@ class CatalogService:
             session.delete(mini_badge)
             session.commit()
 
+    # ==================== PROGRESS BADGE OPERATIONS ====================
+
+    def create_progress_badge(
+        self,
+        program_id: UUID,
+        title: str,
+        description: str | None,
+        icon: str | None,
+        actor_id: UUID,
+        actor_role: UserRole,
+    ) -> ProgressBadge:
+        """Create a new progress badge directly under a program."""
+        if actor_role != UserRole.ADMIN:
+            raise AuthorizationError("Only admins can create progress badges")
+
+        if not title or len(title.strip()) == 0:
+            raise ValidationError("Progress badge title is required")
+        if len(title) > 200:
+            raise ValidationError("Progress badge title must be 200 characters or less")
+
+        icon_value = (icon or "🎖️").strip() or "🎖️"
+        if len(icon_value) > 32:
+            raise ValidationError("Icon must be 32 characters or fewer")
+
+        with Session(self.engine) as session:
+            program = session.get(Program, program_id)
+            if not program:
+                raise NotFoundError(f"Program {program_id} not found")
+
+            progress_badge = ProgressBadge(
+                program_id=program_id,
+                title=title.strip(),
+                description=description.strip() if description else None,
+                icon=icon_value,
+                is_active=True,
+            )
+            session.add(progress_badge)
+            session.commit()
+            session.refresh(progress_badge)
+
+            self.audit_service.log_action(
+                actor_user_id=actor_id,
+                action="create_progress_badge",
+                entity="progress_badge",
+                entity_id=progress_badge.id,
+                context_data={
+                    "title": progress_badge.title,
+                    "program_id": str(program_id),
+                },
+            )
+
+            return progress_badge
+
+    def get_progress_badge(self, progress_badge_id: UUID) -> ProgressBadge | None:
+        """Get a progress badge by ID."""
+        with Session(self.engine) as session:
+            return session.get(ProgressBadge, progress_badge_id)
+
+    def list_progress_badges(
+        self,
+        program_id: UUID | None = None,
+        include_inactive: bool = False,
+    ) -> list[ProgressBadge]:
+        """List progress badges, optionally filtered by program."""
+        with Session(self.engine) as session:
+            query = select(ProgressBadge).order_by(ProgressBadge.created_at.desc())
+            if program_id:
+                query = query.where(ProgressBadge.program_id == program_id)
+            if not include_inactive:
+                query = query.where(ProgressBadge.is_active == True)
+            result = session.exec(query)
+            return list(result.all())
+
+    def update_progress_badge(
+        self,
+        progress_badge_id: UUID,
+        title: str | None,
+        description: str | None,
+        icon: str | None,
+        actor_id: UUID,
+        actor_role: UserRole,
+    ) -> ProgressBadge:
+        """Update an existing progress badge."""
+        if actor_role != UserRole.ADMIN:
+            raise AuthorizationError("Only admins can update progress badges")
+
+        with Session(self.engine) as session:
+            progress_badge = session.get(ProgressBadge, progress_badge_id)
+            if not progress_badge:
+                raise NotFoundError(f"ProgressBadge {progress_badge_id} not found")
+
+            old_values = {
+                "title": progress_badge.title,
+                "description": progress_badge.description,
+                "icon": progress_badge.icon,
+            }
+
+            if title is not None:
+                if not title or len(title.strip()) == 0:
+                    raise ValidationError("Progress badge title is required")
+                if len(title) > 200:
+                    raise ValidationError("Progress badge title must be 200 characters or less")
+                progress_badge.title = title.strip()
+
+            if description is not None:
+                progress_badge.description = description.strip() if description else None
+
+            if icon is not None:
+                icon_value = icon.strip() or "🎖️"
+                if len(icon_value) > 32:
+                    raise ValidationError("Icon must be 32 characters or fewer")
+                progress_badge.icon = icon_value
+
+            progress_badge.updated_at = datetime.utcnow()
+            session.add(progress_badge)
+            session.commit()
+            session.refresh(progress_badge)
+
+            self.audit_service.log_action(
+                actor_user_id=actor_id,
+                action="update_progress_badge",
+                entity="progress_badge",
+                entity_id=progress_badge.id,
+                context_data={
+                    "old_title": old_values["title"],
+                    "new_title": progress_badge.title,
+                },
+            )
+
+            return progress_badge
+
+    def toggle_progress_badge_active(
+        self,
+        progress_badge_id: UUID,
+        is_active: bool,
+        actor_id: UUID,
+        actor_role: UserRole,
+    ) -> ProgressBadge:
+        """Activate or deactivate a progress badge."""
+        if actor_role != UserRole.ADMIN:
+            raise AuthorizationError("Only admins can activate/deactivate progress badges")
+
+        with Session(self.engine) as session:
+            progress_badge = session.get(ProgressBadge, progress_badge_id)
+            if not progress_badge:
+                raise NotFoundError(f"ProgressBadge {progress_badge_id} not found")
+
+            old_status = progress_badge.is_active
+            progress_badge.is_active = is_active
+            progress_badge.updated_at = datetime.utcnow()
+            session.add(progress_badge)
+            session.commit()
+            session.refresh(progress_badge)
+
+            self.audit_service.log_action(
+                actor_user_id=actor_id,
+                action="toggle_progress_badge_active",
+                entity="progress_badge",
+                entity_id=progress_badge.id,
+                context_data={
+                    "old_status": old_status,
+                    "new_status": is_active,
+                },
+            )
+
+            return progress_badge
+
+    def delete_progress_badge(
+        self,
+        progress_badge_id: UUID,
+        actor_id: UUID,
+        actor_role: UserRole,
+    ) -> None:
+        """Delete a progress badge."""
+        if actor_role != UserRole.ADMIN:
+            raise AuthorizationError("Only admins can delete progress badges")
+
+        with Session(self.engine) as session:
+            progress_badge = session.get(ProgressBadge, progress_badge_id)
+            if not progress_badge:
+                raise NotFoundError(f"ProgressBadge {progress_badge_id} not found")
+
+            awards = session.exec(
+                select(Award).where(Award.progress_badge_id == progress_badge_id)
+            ).all()
+
+            if awards:
+                raise ValidationError(
+                    "Cannot delete progress badge that has awards. Deactivate instead."
+                )
+
+            self.audit_service.log_action(
+                actor_user_id=actor_id,
+                action="delete_progress_badge",
+                entity="progress_badge",
+                entity_id=progress_badge.id,
+                context_data={"title": progress_badge.title},
+            )
+
+            session.delete(progress_badge)
+            session.commit()
+
     # ==================== CAPSTONE OPERATIONS ====================
 
     def create_capstone(
@@ -906,6 +1127,12 @@ class CatalogService:
                     .order_by(Skill.position)
                 ).all()
 
+                progress_badges = session.exec(
+                    select(ProgressBadge)
+                    .where(ProgressBadge.program_id == program.id, ProgressBadge.is_active == True)
+                    .order_by(ProgressBadge.created_at.desc())
+                ).all()
+
                 skills_data = []
                 for skill in skills:
                     mini_badges = session.exec(
@@ -941,6 +1168,15 @@ class CatalogService:
                     "description": program.description,
                     "position": program.position,
                     "skills": skills_data,
+                    "progress_badges": [
+                        {
+                            "id": pb.id,
+                            "title": pb.title,
+                            "description": pb.description,
+                            "icon": pb.icon,
+                        }
+                        for pb in progress_badges
+                    ],
                     "capstones": [
                         {
                             "id": c.id,
@@ -965,6 +1201,12 @@ class CatalogService:
                 select(Skill)
                 .where(Skill.program_id == program_id)
                 .order_by(Skill.position)
+            ).all()
+
+            progress_badges = session.exec(
+                select(ProgressBadge)
+                .where(ProgressBadge.program_id == program_id)
+                .order_by(ProgressBadge.created_at.desc())
             ).all()
 
             skills_data = []
@@ -1004,6 +1246,16 @@ class CatalogService:
                 "is_active": program.is_active,
                 "position": program.position,
                 "skills": skills_data,
+                "progress_badges": [
+                    {
+                        "id": pb.id,
+                        "title": pb.title,
+                        "description": pb.description,
+                        "icon": pb.icon,
+                        "is_active": pb.is_active,
+                    }
+                    for pb in progress_badges
+                ],
                 "capstones": [
                     {
                         "id": c.id,

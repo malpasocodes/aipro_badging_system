@@ -12,6 +12,7 @@ class AwardType(str, Enum):
     MINI_BADGE = "mini_badge"
     SKILL = "skill"
     PROGRAM = "program"
+    PROGRESS_BADGE = "progress_badge"
 
 
 class Award(SQLModel, table=True):
@@ -51,6 +52,11 @@ class Award(SQLModel, table=True):
         foreign_key="programs.id",
         index=True
     )
+    progress_badge_id: UUID | None = Field(
+        default=None,
+        foreign_key="progress_badges.id",
+        index=True
+    )
 
     # Original request that triggered this award (for mini_badges only)
     request_id: UUID | None = Field(
@@ -75,6 +81,7 @@ class Award(SQLModel, table=True):
         UniqueConstraint('user_id', 'mini_badge_id', name='uq_user_mini_badge'),
         UniqueConstraint('user_id', 'skill_id', name='uq_user_skill'),
         UniqueConstraint('user_id', 'program_id', name='uq_user_program'),
+        UniqueConstraint('user_id', 'progress_badge_id', name='uq_user_progress_badge'),
     )
 
     def get_badge_id(self) -> UUID:
@@ -85,6 +92,8 @@ class Award(SQLModel, table=True):
             return self.skill_id
         elif self.award_type == AwardType.PROGRAM:
             return self.program_id
+        elif self.award_type == AwardType.PROGRESS_BADGE:
+            return self.progress_badge_id
         raise ValueError(f"Invalid award_type: {self.award_type}")
 
     def is_automatic(self) -> bool:

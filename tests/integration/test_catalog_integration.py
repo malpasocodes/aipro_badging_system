@@ -142,8 +142,8 @@ def test_cascade_deactivate_program(test_engine, admin_user):
     assert updated_badge.is_active is True
 
 
-def test_delete_program_with_children_fails(test_engine, admin_user):
-    """Test that deleting program with children fails."""
+def test_delete_program_cascades_children(test_engine, admin_user):
+    """Deleting program cascades to child entities."""
     catalog_service = get_catalog_service(engine=test_engine)
 
     program = catalog_service.create_program(
@@ -161,11 +161,19 @@ def test_delete_program_with_children_fails(test_engine, admin_user):
         actor_role=admin_user.role,
     )
 
-    # Should fail to delete program with skills
-    from app.services.catalog_service import ValidationError
+    mini_badge = catalog_service.create_mini_badge(
+        skill_id=skill.id,
+        title="Test Badge",
+        description=None,
+        actor_id=admin_user.id,
+        actor_role=admin_user.role,
+    )
 
-    with pytest.raises(ValidationError, match="Cannot delete program"):
-        catalog_service.delete_program(program.id, admin_user.id, admin_user.role)
+    catalog_service.delete_program(program.id, admin_user.id, admin_user.role)
+
+    assert catalog_service.get_program(program.id) is None
+    assert catalog_service.get_skill(skill.id) is None
+    assert catalog_service.get_mini_badge(mini_badge.id) is None
 
 
 def test_request_badge_from_catalog(test_engine, admin_user, student_user):

@@ -6,6 +6,7 @@ from typing import Any
 import streamlit as st
 
 from app.models.award import Award, AwardType
+from app.services import get_catalog_service
 
 
 def render_badge_card(
@@ -216,17 +217,40 @@ def render_award_badge(award: Award) -> None:
     Args:
         award: Award object to display
     """
-    # Determine badge type and emoji
-    type_emoji = {
-        AwardType.MINI_BADGE: "🏅",
-        AwardType.SKILL: "⭐",
-        AwardType.PROGRAM: "🏆",
-    }
-    emoji = type_emoji.get(award.award_type, "🎖️")
+    catalog_service = get_catalog_service()
 
-    # Get badge title based on type
     badge_id = award.get_badge_id()
-    badge_title = f"{award.award_type.value.replace('_', ' ').title()}"
+    badge_title = ""
+    badge_caption = None
+    emoji = "🎖️"
+
+    if award.award_type == AwardType.MINI_BADGE and badge_id:
+        mini_badge = catalog_service.get_mini_badge(badge_id)
+        if mini_badge:
+            badge_title = mini_badge.title
+            emoji = "🏅"
+            badge_caption = mini_badge.description
+    elif award.award_type == AwardType.SKILL and badge_id:
+        skill = catalog_service.get_skill(badge_id)
+        if skill:
+            badge_title = skill.title
+            emoji = "⭐"
+            badge_caption = skill.description
+    elif award.award_type == AwardType.PROGRAM and badge_id:
+        program = catalog_service.get_program(badge_id)
+        if program:
+            badge_title = program.title
+            emoji = "🏆"
+            badge_caption = program.description
+    elif award.award_type == AwardType.PROGRESS_BADGE and badge_id:
+        progress_badge = catalog_service.get_progress_badge(badge_id)
+        if progress_badge:
+            badge_title = progress_badge.title
+            emoji = progress_badge.icon or "🚀"
+            badge_caption = progress_badge.description
+
+    if not badge_title:
+        badge_title = award.award_type.value.replace('_', ' ').title()
 
     with st.container():
         col1, col2, col3 = st.columns([1, 3, 2])
@@ -236,7 +260,10 @@ def render_award_badge(award: Award) -> None:
 
         with col2:
             st.markdown(f"**{badge_title}**")
-            st.caption(f"ID: {str(badge_id)[:8]}...")
+            if badge_caption:
+                st.caption(badge_caption)
+            elif badge_id:
+                st.caption(f"ID: {str(badge_id)[:8]}...")
 
         with col3:
             st.caption(f"Earned: {award.awarded_at.strftime('%m/%d/%Y')}")

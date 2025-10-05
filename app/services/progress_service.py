@@ -12,6 +12,7 @@ from app.models.award import Award, AwardType
 from app.models.capstone import Capstone
 from app.models.mini_badge import MiniBadge
 from app.models.program import Program
+from app.models.progress_badge import ProgressBadge
 from app.models.skill import Skill
 from app.services.audit_service import get_audit_service
 
@@ -206,6 +207,64 @@ class ProgressService:
             session.commit()
             session.refresh(award)
             return award
+
+    def award_progress_badge(
+        self,
+        user_id: UUID,
+        progress_badge_id: UUID,
+        awarded_by: UUID,
+        reason: str | None = None,
+    ) -> Award:
+        """Manually award a progress badge under a program."""
+        engine = self.engine or get_engine()
+
+        with Session(engine) as session:
+            progress_badge = session.get(ProgressBadge, progress_badge_id)
+            if not progress_badge:
+                raise ProgressError(f"Progress badge {progress_badge_id} not found")
+            if not progress_badge.is_active:
+                raise ProgressError("Progress badge is not currently active")
+
+            try:
+                award = Award(
+                    user_id=user_id,
+                    award_type=AwardType.PROGRESS_BADGE,
+                    progress_badge_id=progress_badge_id,
+                    awarded_by=awarded_by,
+                    awarded_at=datetime.utcnow(),
+                    notes=reason,
+                )
+                session.add(award)
+                session.commit()
+                session.refresh(award)
+
+                logger.info(
+                    "Progress badge awarded",
+                    user_id=str(user_id),
+                    progress_badge_id=str(progress_badge_id),
+                    award_id=str(award.id),
+                )
+
+                self.audit_service.log_action(
+                    actor_user_id=awarded_by,
+                    action="award_progress_badge",
+                    entity="award",
+                    entity_id=award.id,
+                    context_data={
+                        "user_id": str(user_id),
+                        "progress_badge_id": str(progress_badge_id),
+                        "reason": reason,
+                    },
+                )
+
+                return award
+
+            except Exception as exc:
+                if "UNIQUE constraint failed" in str(exc) or "uq_user_progress_badge" in str(exc):
+                    raise DuplicateAwardError(
+                        f"User {user_id} already has progress badge {progress_badge_id}"
+                    )
+                raise
 
     def _award_skill_internal(
         self,

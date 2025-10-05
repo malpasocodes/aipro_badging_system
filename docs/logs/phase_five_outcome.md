@@ -195,6 +195,7 @@
 ## Maintenance Updates
 
 - **2025-10-05:** Program deletion now cascades through skills, mini-badges, capstones, related requests, and awards with detailed audit context (`app/services/catalog_service.py:197`). Admin confirmation dialog highlights the cascade (`app/ui/catalog_management.py:182`), and regression coverage ensures dependent data is removed (`tests/unit/test_catalog_service.py:262`).
+- **2025-10-05:** Added program-level progress badges with CRUD, icon support, admin/students UI updates, manual award integration, and test coverage (`app/models/progress_badge.py`, `app/ui/catalog_management.py:440`, `app/ui/progress_dashboard.py:20`, `tests/unit/test_catalog_service.py:520`).
 
 ## Lessons Learned
 

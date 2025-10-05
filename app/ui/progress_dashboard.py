@@ -39,9 +39,10 @@ def render_my_badges(user: User) -> None:
     mini_badges = [a for a in awards if a.award_type == AwardType.MINI_BADGE]
     skills = [a for a in awards if a.award_type == AwardType.SKILL]
     programs = [a for a in awards if a.award_type == AwardType.PROGRAM]
+    progress_badges = [a for a in awards if a.award_type == AwardType.PROGRESS_BADGE]
 
     # Summary metrics
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(4)
 
     with col1:
         st.metric("🏅 Mini-Badges", len(mini_badges))
@@ -52,10 +53,18 @@ def render_my_badges(user: User) -> None:
     with col3:
         st.metric("🏆 Programs", len(programs))
 
+    with col4:
+        st.metric("🚀 Progress", len(progress_badges))
+
     st.markdown("---")
 
     # Tabs for different award types
-    tab1, tab2, tab3 = st.tabs(["🏅 Mini-Badges", "⭐ Skills", "🏆 Programs"])
+    tab1, tab2, tab3, tab4 = st.tabs([
+        "🏅 Mini-Badges",
+        "⭐ Skills",
+        "🏆 Programs",
+        "🚀 Progress Badges",
+    ])
 
     with tab1:
         if mini_badges:
@@ -83,6 +92,15 @@ def render_my_badges(user: User) -> None:
                 render_award_badge(award)
         else:
             st.info("No programs completed yet")
+
+    with tab4:
+        if progress_badges:
+            st.markdown(f"**{len(progress_badges)} progress badge(s) earned**")
+            st.markdown("---")
+            for award in sorted(progress_badges, key=lambda a: a.awarded_at, reverse=True):
+                render_award_badge(award)
+        else:
+            st.info("No progress badges earned yet")
 
 
 def render_my_progress(user: User) -> None:

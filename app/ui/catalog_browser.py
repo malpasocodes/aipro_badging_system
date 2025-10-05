@@ -34,8 +34,9 @@ def render_catalog_browser(user: User) -> None:
             # Show program stats
             total_skills = len(program["skills"])
             total_mini_badges = sum(len(skill["mini_badges"]) for skill in program["skills"])
+            total_progress_badges = len(program.get("progress_badges", []))
 
-            col1, col2, col3 = st.columns(3)
+            col1, col2, col3, col4 = st.columns(4)
             with col1:
                 st.metric("Skills", total_skills)
             with col2:
@@ -43,6 +44,8 @@ def render_catalog_browser(user: User) -> None:
             with col3:
                 # Future: Show earned count
                 st.metric("Your Progress", "—", help="Coming in Phase 6")
+            with col4:
+                st.metric("Progress Badges", total_progress_badges)
 
             st.markdown("---")
 
@@ -78,6 +81,15 @@ def render_catalog_browser(user: User) -> None:
                     st.markdown(f"**{required_badge} {capstone['title']}** {'(Required)' if capstone['is_required'] else '(Optional)'}")
                     if capstone["description"]:
                         st.caption(capstone["description"])
+
+            if program.get("progress_badges"):
+                st.markdown("---")
+                st.markdown("### 🚀 Progress Badges")
+
+                for badge in program["progress_badges"]:
+                    st.markdown(f"**{badge['icon']} {badge['title']}**")
+                    if badge["description"]:
+                        st.caption(badge["description"])
 
 
 def render_mini_badge_card(badge: dict, user: User) -> None:

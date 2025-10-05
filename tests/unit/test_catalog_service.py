@@ -293,6 +293,15 @@ def test_delete_program_cascades_children_and_related_data(catalog_service, admi
         actor_role=UserRole.ADMIN,
     )
 
+    progress_badge = catalog_service.create_progress_badge(
+        program_id=program.id,
+        title="Cascade Progress",
+        description=None,
+        icon="🚀",
+        actor_id=admin_id,
+        actor_role=UserRole.ADMIN,
+    )
+
     # Related request and awards
     request = Request(
         user_id=admin_id,
@@ -314,14 +323,20 @@ def test_delete_program_cascades_children_and_related_data(catalog_service, admi
         award_type=AwardType.PROGRAM,
         program_id=program.id,
     )
+    award_progress = Award(
+        user_id=admin_id,
+        award_type=AwardType.PROGRESS_BADGE,
+        progress_badge_id=progress_badge.id,
+    )
 
-    test_session.add_all([request, award_badge, award_skill, award_program])
+    test_session.add_all([request, award_badge, award_skill, award_program, award_progress])
     test_session.commit()
 
     request_id = request.id
     award_badge_id = award_badge.id
     award_skill_id = award_skill.id
     award_program_id = award_program.id
+    award_progress_id = award_progress.id
 
     catalog_service.delete_program(program.id, admin_id, UserRole.ADMIN)
 
@@ -330,6 +345,7 @@ def test_delete_program_cascades_children_and_related_data(catalog_service, admi
     assert catalog_service.get_skill(skill.id) is None
     assert catalog_service.get_mini_badge(mini_badge.id) is None
     assert catalog_service.get_capstone(capstone.id) is None
+    assert catalog_service.get_progress_badge(progress_badge.id) is None
 
     # Related requests and awards removed
     with Session(catalog_service.engine) as session:
@@ -337,6 +353,7 @@ def test_delete_program_cascades_children_and_related_data(catalog_service, admi
         assert session.exec(select(Award).where(Award.id == award_badge_id)).first() is None
         assert session.exec(select(Award).where(Award.id == award_skill_id)).first() is None
         assert session.exec(select(Award).where(Award.id == award_program_id)).first() is None
+        assert session.exec(select(Award).where(Award.id == award_progress_id)).first() is None
 
 
 # ==================== SKILL TESTS ====================
@@ -557,6 +574,93 @@ def test_list_mini_badges_by_skill(catalog_service, admin_id):
 
     assert badge1.id in badge_ids
     assert badge2.id not in badge_ids
+
+
+# ==================== PROGRESS BADGE TESTS ====================
+
+
+def test_create_progress_badge_success(catalog_service, admin_id):
+    """Test creating progress badge under program."""
+    program = catalog_service.create_program(
+        title="Program",
+        description=None,
+        actor_id=admin_id,
+        actor_role=UserRole.ADMIN,
+    )
+
+    progress_badge = catalog_service.create_progress_badge(
+        program_id=program.id,
+        title="Milestone",
+        description="Special recognition",
+        icon="🚀",
+        actor_id=admin_id,
+        actor_role=UserRole.ADMIN,
+    )
+
+    assert progress_badge.program_id == program.id
+    assert progress_badge.icon == "🚀"
+
+
+def test_update_progress_badge(catalog_service, admin_id):
+    """Test updating progress badge details."""
+    program = catalog_service.create_program(
+        title="Program",
+        description=None,
+        actor_id=admin_id,
+        actor_role=UserRole.ADMIN,
+    )
+
+    progress_badge = catalog_service.create_progress_badge(
+        program_id=program.id,
+        title="Milestone",
+        description="Special",
+        icon="🚀",
+        actor_id=admin_id,
+        actor_role=UserRole.ADMIN,
+    )
+
+    updated = catalog_service.update_progress_badge(
+        progress_badge_id=progress_badge.id,
+        title="Updated Milestone",
+        description="New description",
+        icon="✨",
+        actor_id=admin_id,
+        actor_role=UserRole.ADMIN,
+    )
+
+    assert updated.title == "Updated Milestone"
+    assert updated.icon == "✨"
+
+
+def test_delete_progress_badge_blocks_when_awarded(catalog_service, admin_id, test_session):
+    """Deleting progress badge with awards should fail."""
+    program = catalog_service.create_program(
+        title="Program",
+        description=None,
+        actor_id=admin_id,
+        actor_role=UserRole.ADMIN,
+    )
+
+    progress_badge = catalog_service.create_progress_badge(
+        program_id=program.id,
+        title="Milestone",
+        description=None,
+        icon="🚀",
+        actor_id=admin_id,
+        actor_role=UserRole.ADMIN,
+    )
+
+    award = Award(
+        user_id=admin_id,
+        award_type=AwardType.PROGRESS_BADGE,
+        progress_badge_id=progress_badge.id,
+    )
+
+    test_session.add(award)
+    test_session.commit()
+
+    with pytest.raises(ValidationError):
+        catalog_service.delete_progress_badge(progress_badge.id, admin_id, UserRole.ADMIN)
 
 
 # ==================== CAPSTONE TESTS ====================

@@ -129,7 +129,7 @@ def render_manual_award_form(admin_user: User) -> None:
         # Badge type
         award_type = st.selectbox(
             "Badge Type",
-            options=["Skill", "Program"],
+            options=["Skill", "Program", "Progress Badge"],
             help="Mini-badges should be awarded through the request approval process"
         )
 
@@ -147,7 +147,7 @@ def render_manual_award_form(admin_user: User) -> None:
             )
             badge_id = skill_options.get(selected_skill) if selected_skill else None
 
-        else:  # Program
+        elif award_type == "Program":
             programs = catalog_service.list_programs(include_inactive=False)
             program_options = {p.title: p.id for p in programs}
 
@@ -157,6 +157,21 @@ def render_manual_award_form(admin_user: User) -> None:
                 help="Select the program to award"
             )
             badge_id = program_options.get(selected_program) if selected_program else None
+        else:
+            progress_badges = catalog_service.list_progress_badges(include_inactive=False)
+            badge_options = {}
+            for b in progress_badges:
+                program = catalog_service.get_program(b.program_id)
+                program_title = program.title if program else "Unknown Program"
+                label = f"{program_title} • {b.icon} {b.title}"
+                badge_options[label] = b.id
+
+            selected_badge = st.selectbox(
+                "Select Progress Badge",
+                options=list(badge_options.keys()) if badge_options else [],
+                help="Select the progress badge to award"
+            )
+            badge_id = badge_options.get(selected_badge) if selected_badge else None
 
         # Reason
         reason = st.text_area(
@@ -198,10 +213,17 @@ def render_manual_award_form(admin_user: User) -> None:
                         awarded_by=admin_user.id,
                         reason=reason.strip()
                     )
-                else:  # Program
+                elif award_type == "Program":
                     award = progress_service.award_program(
                         user_id=user.id,
                         program_id=badge_id,
+                        awarded_by=admin_user.id,
+                        reason=reason.strip()
+                    )
+                else:
+                    award = progress_service.award_progress_badge(
+                        user_id=user.id,
+                        progress_badge_id=badge_id,
                         awarded_by=admin_user.id,
                         reason=reason.strip()
                     )
